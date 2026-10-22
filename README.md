@@ -29,8 +29,12 @@ La geolocalizzazione funziona solo su `localhost` o HTTPS.
 
 Ogni push su `main` esegue test e build, poi pubblica su GitHub Pages tramite `.github/workflows/deploy.yml`. Nelle impostazioni del repo, Pages deve avere come sorgente "GitHub Actions".
 
-## Dati
+## Dati e condizioni d'uso
 
-- Previsioni: [Open-Meteo](https://open-meteo.com/) (gratis, senza chiave).
-- Ricerca posti: Open-Meteo Geocoding.
-- Nome del posto dalla posizione: BigDataCloud reverse geocoding (client).
+- Previsioni: [Open-Meteo](https://open-meteo.com/), dati CC BY 4.0. L'API gratuita è solo per uso **non commerciale** (niente pubblicità o abbonamenti); i limiti valgono per IP, quindi ogni utente usa la propria quota.
+- Ricerca posti: Open-Meteo Geocoding, dati GeoNames (CC BY 4.0).
+- Nome del posto: BigDataCloud reverse geocoding client. Va chiamato solo dal browser e solo con la posizione GPS del dispositivo, mai con coordinate salvate o condivise.
+
+## Privacy
+
+Nessun backend, account, cookie o statistica. La posizione va a Open-Meteo e BigDataCloud, le ricerche a Open-Meteo. In `localStorage` restano preferenze, posti recenti e ultima previsione.

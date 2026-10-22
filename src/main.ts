@@ -186,6 +186,10 @@ function toast(msg: string): void {
 
 /* ---------- data flow ---------- */
 
+/**
+ * @param resolveName Look up the place name from coordinates. Only for GPS positions: BigDataCloud's
+ * free client API may be called with the device's own location, never with stored or shared coordinates.
+ */
 async function loadPlace(place: Place, source: Source, resolveName = false): Promise<void> {
   const id = ++requestId;
   if (!shown) {
@@ -333,8 +337,8 @@ const lonParam = params.get('lon')?.trim();
 const lat = Number(latParam);
 const lon = Number(lonParam);
 if (latParam && lonParam && Number.isFinite(lat) && Number.isFinite(lon)) {
-  const name = params.get('name');
-  loadPlace({ lat, lon, name: name || 'Posto condiviso' }, 'link', !name);
+  const name = params.get('name')?.trim();
+  loadPlace({ lat, lon, name: name || `${lat.toFixed(2)}, ${lon.toFixed(2)}` }, 'link');
 } else {
   locate();
 }

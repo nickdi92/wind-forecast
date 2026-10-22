@@ -804,6 +804,24 @@ body.loading .wind-name.small {
   margin-bottom: 14px;
 }
 
+.foot p {
+  margin: 0 0 10px;
+}
+
+.foot .disclaimer {
+  color: var(--ink-2);
+}
+
+.privacy summary {
+  cursor: pointer;
+  color: var(--ink-2);
+  width: fit-content;
+}
+
+.privacy p {
+  margin: 6px 0 0;
+}
+
 .btn {
   font: 600 15px var(--sans);
   background: var(--accent);
