@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="75%">
+      <stop offset="0" stop-color="#17485a"/>
+      <stop offset=".6" stop-color="#0f3440"/>
+      <stop offset="1" stop-color="#08202a"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g transform="translate(256 256)">
+    <circle r="168" fill="none" stroke="#e6efe9" stroke-opacity=".22" stroke-width="6"/>
+    <g fill="#e6efe9">
+      <path d="M0 0 L-16 0 L0 -150 Z" fill-opacity=".16"/><path d="M0 0 L16 0 L0 -150 Z" fill-opacity=".07"/>
+      <path d="M0 0 L0 16 L150 0 Z" fill-opacity=".16"/><path d="M0 0 L0 -16 L150 0 Z" fill-opacity=".07"/>
+      <path d="M0 0 L16 0 L0 150 Z" fill-opacity=".16"/><path d="M0 0 L-16 0 L0 150 Z" fill-opacity=".07"/>
+      <path d="M0 0 L0 -16 L-150 0 Z" fill-opacity=".16"/><path d="M0 0 L0 16 L-150 0 Z" fill-opacity=".07"/>
+    </g>
+    <g transform="rotate(-45)">
+      <path d="M0 10 L13 0 L0 120 L-13 0 Z" fill="#e6efe9" fill-opacity=".38"/>
+      <path d="M0 -150 L22 0 L0 26 L-22 0 Z" fill="#8fe3c8"/>
+      <path d="M0 -150 L0 26 L-22 0 Z" fill="#000" fill-opacity=".2"/>
+      <circle r="15" fill="#0f3440" stroke="#8fe3c8" stroke-width="7"/>
+    </g>
+  </g>
+</svg>
