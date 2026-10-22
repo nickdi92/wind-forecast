@@ -33,6 +33,16 @@ describe('gustAlert', () => {
     });
   });
 
+  it('reports only the first spell when a long lull separates two', () => {
+    // Strong now, calm for three hours, strong again later (Olbia, 22 Oct: today 15-19, tomorrow 13-17).
+    const a = gustAlert(hours([68, 63, 20, 20, 20, 75, 41]));
+    expect(a).toMatchObject({ maxGust: 68, start: '2026-10-22T13:00', end: '2026-10-22T14:00', ongoing: true });
+  });
+
+  it('takes the level from the first spell only', () => {
+    expect(gustAlert(hours([45, 20, 20, 20, 70]))?.level).toBe('attenzione');
+  });
+
   it('says when strong gusts are already blowing', () => {
     expect(gustAlert(hours([44, 50, 20]))?.ongoing).toBe(true);
   });

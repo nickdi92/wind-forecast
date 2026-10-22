@@ -15,16 +15,25 @@ export interface GustAlert {
   dir: number;
 }
 
+/** A lull this many hours long or shorter does not end a spell of strong gusts. */
+const LULL_HOURS = 2;
+
+/** The first spell of strong gusts: later spells are reported once this one is over. */
 export function gustAlert(hours: HourPoint[]): GustAlert | null {
-  const strong = hours.map((h, i) => (h.gust >= GUST_WARN ? i : -1)).filter((i) => i >= 0);
-  if (strong.length === 0) return null;
-  const peak = hours.reduce((best, h) => (h.gust > best.gust ? h : best));
+  const first = hours.findIndex((h) => h.gust >= GUST_WARN);
+  if (first < 0) return null;
+  let last = first;
+  for (let i = first + 1; i < hours.length && i - last <= LULL_HOURS + 1; i++) {
+    if (hours[i].gust >= GUST_WARN) last = i;
+  }
+  const spell = hours.slice(first, last + 1);
+  const peak = spell.reduce((best, h) => (h.gust > best.gust ? h : best));
   return {
     level: peak.gust >= GUST_DANGER ? 'pericolo' : 'attenzione',
     maxGust: peak.gust,
-    start: hours[strong[0]].time,
-    end: hours[strong[strong.length - 1]].time,
-    ongoing: strong[0] === 0,
+    start: hours[first].time,
+    end: hours[last].time,
+    ongoing: first === 0,
     dir: peak.dir,
   };
 }
