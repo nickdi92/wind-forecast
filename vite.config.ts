@@ -1,13 +1,13 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// GitHub Pages serves the app from /<repo>/; the deploy workflow sets BASE_PATH.
-const base = process.env.BASE_PATH ?? '/';
-
-export default defineConfig({
-  base,
+export default defineConfig(({ mode }) => ({
+  // `--mode native` builds the bundle for the Capacitor app: served from the app root, no service worker.
+  // GitHub Pages serves the web app from /<repo>/; the deploy workflow sets BASE_PATH.
+  base: mode === 'native' ? '/' : (process.env.BASE_PATH ?? '/'),
   plugins: [
     VitePWA({
+      disable: mode === 'native',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon-180x180.png'],
       manifest: {
@@ -44,4 +44,4 @@ export default defineConfig({
       },
     }),
   ],
-});
+}));

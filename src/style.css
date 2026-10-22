@@ -812,6 +812,22 @@ body.loading .wind-name.small {
   color: var(--ink-2);
 }
 
+/* Copy that only makes sense inside the iOS app (main.ts adds .native). */
+.native-only {
+  display: none;
+}
+
+html.native .native-only {
+  display: revert;
+}
+
+.alerts-panel p {
+  margin: 0 0 14px;
+  max-width: 52ch;
+  color: var(--ink-2);
+  font-size: 15px;
+}
+
 .privacy summary {
   cursor: pointer;
   color: var(--ink-2);

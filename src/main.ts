@@ -6,11 +6,13 @@ import '@fontsource/cormorant-garamond/latin-600-italic.css';
 import './style.css';
 import { registerSW } from 'virtual:pwa-register';
 
-import { currentPosition, fetchForecast, placeName, type Place } from './api';
+import { GUST_WARN } from './alerts';
+import { currentPosition, fetchForecast, placeName, type Place, type PlaceSource } from './api';
 import { HourChart } from './chart';
 import { DayList } from './days';
 import { buildForecast, type Forecast, type HourPoint, type OpenMeteoResponse } from './forecast';
 import { agoLabel, alertCopy, hourLabel, localIso } from './format';
+import { isNative, syncPayload, vento, type AlertsStatus } from './native';
 import { Rose } from './rose';
 import { Search } from './search';
 import { load, save } from './storage';
@@ -24,11 +26,9 @@ const STALE_AFTER = 15 * 60_000;
 const CACHE_MAX_AGE = 4 * 86_400_000;
 const CALM_BELOW = 2; // km/h
 
-type Source = 'gps' | 'search' | 'link';
-
 interface Shown {
   place: Place;
-  source: Source;
+  source: PlaceSource;
   data: OpenMeteoResponse;
   fetchedAt: number;
 }
@@ -48,6 +48,9 @@ const els = {
   toast: $('#toast'),
   install: $<HTMLButtonElement>('#install-btn'),
   iosHint: $('#ios-hint'),
+  alertsPanel: $('#alerts-panel'),
+  alertsText: $('#alerts-text'),
+  alertsBtn: $<HTMLButtonElement>('#alerts-btn'),
 };
 
 let shown: Shown | null = null;
@@ -164,6 +167,7 @@ function renderAll(): void {
   renderAlert();
   chart.render(forecast.next24, unit, selectedIndex());
   dayList.render(forecast.days, forecast.current.time.slice(0, 10), unit);
+  renderAlertsPanel();
 }
 
 function renderMessage(title: string, body: string, actions: { label: string; run: () => void }[]): void {
@@ -186,11 +190,18 @@ function toast(msg: string): void {
 
 /* ---------- data flow ---------- */
 
+/** Keeps the last forecast for offline use and, in the app, hands it to the widget and gust notifications. */
+function persist(): void {
+  if (!shown) return;
+  save(CACHE_KEY, shown);
+  if (isNative) vento.sync(syncPayload(shown, unit)).catch(() => {});
+}
+
 /**
  * @param resolveName Look up the place name from coordinates. Only for GPS positions: BigDataCloud's
  * free client API may be called with the device's own location, never with stored or shared coordinates.
  */
-async function loadPlace(place: Place, source: Source, resolveName = false): Promise<void> {
+async function loadPlace(place: Place, source: PlaceSource, resolveName = false): Promise<void> {
   const id = ++requestId;
   if (!shown) {
     document.body.classList.add('loading');
@@ -204,12 +215,12 @@ async function loadPlace(place: Place, source: Source, resolveName = false): Pro
     const sameSpot = shown && Math.abs(shown.place.lat - place.lat) < 0.05 && Math.abs(shown.place.lon - place.lon) < 0.05;
     const provisional = resolveName && sameSpot ? shown!.place.name : place.name;
     shown = { place: { ...place, name: provisional }, source, data, fetchedAt: Date.now() };
-    save(CACHE_KEY, shown);
+    persist();
     renderAll();
     const resolved = await name;
     if (id === requestId && resolved && shown) {
       shown.place.name = resolved;
-      save(CACHE_KEY, shown);
+      persist();
       renderHeader();
     }
   } catch {
@@ -251,7 +262,9 @@ async function locate(): Promise<void> {
     renderMessage(
       denied ? 'Posizione non autorizzata' : 'Posizione non trovata',
       denied
-        ? 'Consenti la localizzazione nelle impostazioni del browser, oppure cerca un posto per nome.'
+        ? isNative
+          ? 'Consenti la posizione per Vento in Impostazioni, oppure cerca un posto per nome.'
+          : 'Consenti la localizzazione nelle impostazioni del browser, oppure cerca un posto per nome.'
         : 'Il GPS non ha risposto in tempo. Riprova all’aperto, oppure cerca un posto per nome.',
       [
         { label: 'Cerca un posto', run: () => search.open() },
@@ -274,8 +287,10 @@ els.unitBtn.addEventListener('click', () => {
   const order: SpeedUnit[] = ['kmh', 'kn', 'ms'];
   unit = order[(order.indexOf(unit) + 1) % order.length];
   save(UNIT_KEY, unit);
-  if (shown) renderAll();
-  else renderHeader();
+  if (shown) {
+    renderAll();
+    persist();
+  } else renderHeader();
 });
 
 /** Keeps the screen honest while it stays open: refetch when stale, re-anchor when the hour turns. */
@@ -308,12 +323,50 @@ window.addEventListener('appinstalled', () => (els.install.hidden = true));
 
 const standalone = matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone;
 const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-if (ios && !standalone && !load<boolean>('vento.iosHintDone')) {
+if (ios && !standalone && !isNative && !load<boolean>('vento.iosHintDone')) {
   els.iosHint.hidden = false;
   els.iosHint.querySelector('button')!.addEventListener('click', () => {
     els.iosHint.hidden = true;
     save('vento.iosHintDone', true);
   });
+}
+
+/* ---------- app only: gust notifications ---------- */
+
+let alerts: AlertsStatus | null = null;
+
+function renderAlertsPanel(): void {
+  if (!alerts) return;
+  const from = `${convertSpeed(GUST_WARN, unit)} ${UNIT_LABEL[unit]}`;
+  els.alertsPanel.hidden = false;
+  els.alertsBtn.hidden = alerts.permission === 'denied';
+  els.alertsBtn.classList.toggle('ghost', alerts.enabled);
+  if (alerts.permission === 'denied') {
+    els.alertsText.textContent = 'Le notifiche di Vento sono bloccate. Per riceverle vai in Impostazioni, Notifiche, Vento.';
+  } else if (alerts.enabled) {
+    els.alertsText.textContent = `Attivi per ${shown?.place.name ?? 'il posto scelto'}: ti avviso quando arrivano raffiche da ${from} e un'ora prima che inizino.`;
+    els.alertsBtn.textContent = 'Disattiva avvisi';
+  } else {
+    els.alertsText.textContent = `Ti avviso quando arrivano raffiche da ${from}, anche ad app chiusa, e un'ora prima che inizino.`;
+    els.alertsBtn.textContent = 'Attiva avvisi';
+  }
+}
+
+async function updateAlerts(change?: () => Promise<AlertsStatus>): Promise<void> {
+  try {
+    alerts = await (change ?? vento.alertsStatus)();
+    renderAlertsPanel();
+  } catch {
+    // Plugin missing (old app build): leave the panel hidden.
+  }
+}
+
+if (isNative) {
+  document.documentElement.classList.add('native');
+  els.alertsBtn.addEventListener('click', () => updateAlerts(alerts?.enabled ? vento.disableAlerts : vento.enableAlerts));
+  // Coming back from Settings may have changed the permission.
+  document.addEventListener('visibilitychange', () => document.hidden || updateAlerts());
+  updateAlerts();
 }
 
 /* ---------- start ---------- */

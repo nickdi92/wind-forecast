@@ -1,4 +1,8 @@
 import type { OpenMeteoResponse } from './forecast';
+import { isNative, nativePosition } from './native';
+
+/** How the place was chosen: only GPS positions follow the device and get a name by reverse geocoding. */
+export type PlaceSource = 'gps' | 'search' | 'link';
 
 export interface Place {
   lat: number;
@@ -65,7 +69,10 @@ export async function placeName(lat: number, lon: number): Promise<string | null
   }
 }
 
-export function currentPosition(): Promise<GeolocationPosition> {
+/** Rejects with a GeolocationPositionError-like `{ code }`: 1 when location is not allowed. */
+export function currentPosition(): Promise<{ coords: { latitude: number; longitude: number } }> {
+  // In the app the native plugin asks for permission once, under the app's name, and the widget can reuse it.
+  if (isNative) return nativePosition();
   return new Promise((resolve, reject) => {
     if (!('geolocation' in navigator)) return reject(new Error('Geolocalizzazione non supportata'));
     navigator.geolocation.getCurrentPosition(resolve, reject, {

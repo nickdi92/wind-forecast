@@ -25,6 +25,34 @@ npm run icons    # rigenera le icone PWA da public/favicon.svg
 
 La geolocalizzazione funziona solo su `localhost` o HTTPS.
 
+## App iOS
+
+L'app usa la stessa pagina dentro [Capacitor](https://capacitorjs.com/), più due parti native in Swift:
+
+- **Widget** (schermata Home e blocco schermo): vento adesso, raffiche e prossime 12 ore. Se il posto è la posizione GPS, il widget la segue da solo.
+- **Avvisi raffiche**: notifica quando nelle previsioni compare una raffica da 40 km/h, e un promemoria un'ora prima che inizi. Le raffiche pericolose (da 60 km/h) passano anche con la modalità Full immersion. Funzionano ad app chiusa grazie all'aggiornamento in background, che però iOS fa partire quando vuole.
+
+Struttura:
+
+- `ios/WindCore`: logica condivisa tra app e widget (venti, previsioni, avvisi), con i test (`npm run test:ios`).
+- `ios/App/App`: app, plugin `Vento` che riceve le previsioni dalla pagina (`src/native.ts`), notifiche e aggiornamento in background.
+- `ios/App/VentoWidget`: widget.
+- `ios/App/project.yml`: sorgente del progetto Xcode, generato con [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer   # una volta sola
+npm run ios        # build della pagina, copia in ios/, rigenera il progetto Xcode
+open ios/App/App.xcodeproj
+```
+
+In Xcode scegli il tuo Team in *Signing & Capabilities* per i target `App` e `VentoWidget`, poi esegui su iPhone o simulatore. Il test UI (`AppUITests`) attiva e disattiva gli avvisi nel simulatore.
+
+Per provare una notifica senza aspettare iOS (solo build di debug):
+
+```bash
+xcrun simctl launch booted io.github.nickdi92.vento -VentoRunBackgroundRefresh
+```
+
 ## Deploy
 
 Ogni push su `main` esegue test e build, poi pubblica su GitHub Pages tramite `.github/workflows/deploy.yml`. Nelle impostazioni del repo, Pages deve avere come sorgente "GitHub Actions".
@@ -37,4 +65,4 @@ Ogni push su `main` esegue test e build, poi pubblica su GitHub Pages tramite `.
 
 ## Privacy
 
-Nessun backend, account, cookie o statistica. La posizione va a Open-Meteo e BigDataCloud, le ricerche a Open-Meteo. In `localStorage` restano preferenze, posti recenti e ultima previsione.
+Nessun backend, account, cookie o statistica. La posizione va a Open-Meteo e BigDataCloud, le ricerche a Open-Meteo. In `localStorage` restano preferenze, posti recenti e ultima previsione. Nell'app iOS il widget usa la posizione del telefono e chiede ad Apple il nome del posto; l'ultima previsione resta anche nell'App Group condiviso tra app e widget.
