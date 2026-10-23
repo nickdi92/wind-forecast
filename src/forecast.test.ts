@@ -123,6 +123,17 @@ describe('buildForecast', () => {
     expect(buildForecast(fixture()).alert?.level).toBe('pericolo');
   });
 
+  it('attaches the first rain spell of the next 24 hours', () => {
+    // 13:00 has 1.2 mm at 28%: a blip. 14:00 has 0.4 mm at 30%.
+    expect(buildForecast(fixture()).rainSpell).toMatchObject({
+      start: '2026-10-22T14:00',
+      end: '2026-10-22T14:00',
+      wet: true,
+      ongoing: false,
+      spread: { mean: 320 },
+    });
+  });
+
   it('keeps the timezone of the place', () => {
     expect(buildForecast(fixture()).timezone).toBe('Europe/Rome');
   });

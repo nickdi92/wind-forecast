@@ -13,12 +13,12 @@ import { DayList } from './days';
 import { buildForecast, type Forecast, type HourPoint, type OpenMeteoResponse } from './forecast';
 import { agoLabel, alertCopy, hourLabel, localIso } from './format';
 import { isNative, syncPayload, vento, type AlertsStatus } from './native';
-import { rainLabel, rainShort } from './rain';
+import { rainLabel, rainShort, rainSpellCopy } from './rain';
 import { Rose } from './rose';
 import { Search } from './search';
 import { load, save } from './storage';
 import { dropIcon } from './ui';
-import { beaufort, convertSpeed, UNIT_LABEL, windFrom, type SpeedUnit } from './wind';
+import { beaufort, CALM_BELOW, convertSpeed, UNIT_LABEL, windFrom, type SpeedUnit } from './wind';
 
 registerSW({ immediate: true });
 
@@ -26,7 +26,6 @@ const CACHE_KEY = 'vento.last.v1';
 const UNIT_KEY = 'vento.unit';
 const STALE_AFTER = 15 * 60_000;
 const CACHE_MAX_AGE = 4 * 86_400_000;
-const CALM_BELOW = 2; // km/h
 
 interface Shown {
   place: Place;
@@ -113,6 +112,7 @@ function renderReading(): void {
   const bf = beaufort(p.speed);
   const now = selectedIndex() === null;
   const rain = rainShort(p);
+  const spell = now ? forecast.rainSpell : null;
 
   document.documentElement.dataset.warm = !calm && w.warm ? '1' : '0';
   document.documentElement.style.setProperty('--force', String(bf.force));
@@ -127,7 +127,9 @@ function renderReading(): void {
     <p class="speed"><span class="num">${convertSpeed(p.speed, unit)}</span><span class="u">${UNIT_LABEL[unit]}</span></p>
     <p class="desc">${calm ? 'Aria ferma' : `Da ${w.direction}`}, raffiche fino a ${convertSpeed(p.gust, unit)} ${UNIT_LABEL[unit]}</p>
     <p class="desc soft">Forza ${bf.force}, ${bf.label.toLowerCase()}</p>
-    <p class="desc soft rain-line${rain ? ' wet' : ''}">${dropIcon(13)}${rainLabel(p)}</p>`;
+    <p class="desc soft rain-line${rain ? ' wet' : ''}">${dropIcon(13)}${rainLabel(p)}</p>${
+      spell ? `<p class="desc soft">${rainSpellCopy(spell)}</p>` : ''
+    }`;
 
   els.reading.querySelector('#back-now')?.addEventListener('click', () => selectHour(null));
 
@@ -143,6 +145,7 @@ function renderReading(): void {
     speed: p.speed,
     gust: p.gust,
     spread: now ? forecast.spread : null,
+    rain: spell?.spread ? { ...spell.spread, wet: spell.wet } : null,
   });
 }
 
@@ -178,7 +181,7 @@ function renderMessage(title: string, body: string, actions: { label: string; ru
   document.body.classList.add('empty');
   els.details.hidden = true;
   els.alert.hidden = true;
-  rose.update({ dir: null, speed: 0, gust: 0, spread: null });
+  rose.update({ dir: null, speed: 0, gust: 0, spread: null, rain: null });
   els.reading.innerHTML = `<h1 class="wind-name small">${title}</h1><p class="desc">${body}</p>
     <div class="actions">${actions.map((a, i) => `<button type="button" class="btn${i ? ' ghost' : ''}" data-a="${i}">${a.label}</button>`).join('')}</div>`;
   els.reading.querySelectorAll<HTMLButtonElement>('[data-a]').forEach((b) => b.addEventListener('click', () => actions[Number(b.dataset.a)].run()));

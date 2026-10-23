@@ -13,6 +13,8 @@ export interface RoseView {
   speed: number;
   gust: number;
   spread: { mean: number; half: number } | null;
+  /** Where the wind comes from while it rains in the next hours; faint when rain is only possible. */
+  rain: { mean: number; half: number; wet: boolean } | null;
 }
 
 const pt = (bearing: number, r: number): [number, number] => {
@@ -75,6 +77,24 @@ function names(): string {
   ).join('');
 }
 
+/** Arc on the ring between the inner circle and the ticks, clockwise from `from` to `to`. */
+function ringBand(from: number, to: number): string {
+  const r1 = R_FIELD + 2;
+  const r2 = R_RING - 2;
+  const [x1, y1] = pt(from, r2);
+  const [x2, y2] = pt(to, r2);
+  const [x3, y3] = pt(to, r1);
+  const [x4, y4] = pt(from, r1);
+  return `M${x1} ${y1} A${r2} ${r2} 0 0 1 ${x2} ${y2} L${x3} ${y3} A${r1} ${r1} 0 0 0 ${x4} ${y4} Z`;
+}
+
+function rainArc(rain: RoseView['rain']): string {
+  if (!rain) return '';
+  const [x, y] = pt(rain.mean, (R_FIELD + R_RING) / 2);
+  return `<path class="rain-band" d="${ringBand(rain.mean - rain.half, rain.mean + rain.half)}"/>
+    <path class="rain-drop" transform="translate(${x} ${y + 1})" d="M0 -6C0 -6 -4 -1.4 -4 1.3a4 4 0 0 0 8 0C4 -1.4 0 -6 0 -6Z"/>`;
+}
+
 function sectorPath(mean: number, half: number): string {
   const [x1, y1] = pt(mean - half, R_FIELD);
   const [x2, y2] = pt(mean + half, R_FIELD);
@@ -93,8 +113,9 @@ export class Rose {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly needle: SVGGElement;
   private readonly sector: SVGPathElement;
+  private readonly rainArc: SVGGElement;
   private readonly nameEls: SVGTextElement[];
-  private view: RoseView = { dir: null, speed: 0, gust: 0, spread: null };
+  private view: RoseView = { dir: null, speed: 0, gust: 0, spread: null, rain: null };
   private angle = 0;
   private velocity = 0;
   private particles: Particle[] = [];
@@ -124,6 +145,7 @@ export class Rose {
           </radialGradient>
         </defs>
         <path class="sector" fill="url(#sector-fill)" d=""/>
+        <g class="rain-arc"></g>
         <g class="needle">
           <path d="M0 6 L7 0 L0 104 L-7 0 Z" class="needle-tail"/>
           <path d="M0 -142 L11 0 L0 16 L-11 0 Z" class="needle-head"/>
@@ -135,6 +157,7 @@ export class Rose {
     this.ctx = this.canvas.getContext('2d')!;
     this.needle = root.querySelector('.needle')!;
     this.sector = root.querySelector('.sector')!;
+    this.rainArc = root.querySelector('.rain-arc')!;
     this.nameEls = [...root.querySelectorAll<SVGTextElement>('.rose-name')];
 
     new ResizeObserver(() => this.resize()).observe(root);
@@ -154,6 +177,8 @@ export class Rose {
     const active = calm ? null : windFrom(view.dir!).name;
     for (const el of this.nameEls) el.classList.toggle('on', el.dataset.wind === active);
     this.sector.setAttribute('d', view.spread && !calm ? sectorPath(view.spread.mean, view.spread.half) : '');
+    this.rainArc.innerHTML = rainArc(view.rain);
+    this.rainArc.classList.toggle('maybe', view.rain?.wet === false);
     if (reducedMotion() && !calm) {
       this.angle = view.dir!;
       this.drawNeedle();

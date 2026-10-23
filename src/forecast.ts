@@ -1,4 +1,5 @@
 import { gustAlert, type GustAlert } from './alerts';
+import { rainSpell, type RainSpell } from './rain';
 import { directionSpread } from './wind';
 
 /** Subset of the Open-Meteo /v1/forecast response we request. Times are local to the place. */
@@ -61,6 +62,7 @@ export interface Forecast {
   /** Direction swing over the next 6 hours, drawn as a sector on the rose. */
   spread: { mean: number; half: number };
   alert: GustAlert | null;
+  rainSpell: RainSpell | null;
 }
 
 /**
@@ -130,5 +132,6 @@ export function buildForecast(r: OpenMeteoResponse, now?: string): Forecast {
     days,
     spread: directionSpread(next24.slice(0, 6).map((p) => p.dir)),
     alert: gustAlert(next24),
+    rainSpell: rainSpell(next24),
   };
 }

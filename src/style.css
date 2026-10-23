@@ -13,6 +13,7 @@
   --alert: #f5c451;
   --danger: #ff8f7d;
   --rain: #93bdf5;
+  --rain-rgb: 147, 189, 245;
   --accent: var(--sea);
   --accent-rgb: var(--sea-rgb);
   /* Beaufort force 0–12, set from JS: the sky glows more as the wind rises. */
@@ -293,6 +294,22 @@ button {
 
 .sector {
   transition: opacity 0.4s;
+}
+
+.rain-band {
+  fill: rgba(var(--rain-rgb), 0.6);
+}
+
+.rain-drop {
+  fill: var(--petrol);
+}
+
+.rain-arc.maybe .rain-band {
+  fill: rgba(var(--rain-rgb), 0.25);
+}
+
+.rain-arc.maybe .rain-drop {
+  fill: var(--rain);
 }
 
 .needle-head {

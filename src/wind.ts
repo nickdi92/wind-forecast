@@ -21,6 +21,9 @@ export const WINDS: readonly Wind[] = [
   { name: 'Maestrale', cardinal: 'NO', direction: 'nord-ovest', deg: 315, warm: false },
 ];
 
+/** Below this the app shows "Calma" instead of a wind name. */
+export const CALM_BELOW = 2; // km/h
+
 export const normalizeDeg = (deg: number): number => ((deg % 360) + 360) % 360;
 
 export function windFrom(deg: number): Wind {

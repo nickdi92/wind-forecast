@@ -15,8 +15,8 @@ export interface GustAlert {
   dir: number;
 }
 
-/** A lull this many hours long or shorter does not end a spell of strong gusts. */
-const LULL_HOURS = 2;
+/** A lull this many hours long or shorter does not end a spell of strong gusts, or of rain. */
+export const LULL_HOURS = 2;
 
 /** The first spell of strong gusts: later spells are reported once this one is over. */
 export function gustAlert(hours: HourPoint[]): GustAlert | null {

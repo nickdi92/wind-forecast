@@ -22,7 +22,7 @@ export function localIso(date: Date, timeZone: string): string {
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 }
 
-const nextHourLabel = (iso: string): string => String((Number(iso.slice(11, 13)) + 1) % 24).padStart(2, '0');
+export const nextHourLabel = (iso: string): string => String((Number(iso.slice(11, 13)) + 1) % 24).padStart(2, '0');
 
 const utcDate = (ymd: string): Date => {
   const [y, m, d] = ymd.split('-').map(Number);

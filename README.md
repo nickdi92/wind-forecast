@@ -4,7 +4,7 @@ PWA installabile che mostra il vento dove sei: che vento è (maestrale, scirocco
 
 ## Cosa fa
 
-- **Rosa dei venti** con gli 8 venti del Mediterraneo. La lancetta punta da dove arriva il vento, il ventaglio mostra quanto girerà nelle prossime 6 ore, le scie animate scorrono nella direzione e alla velocità reali.
+- **Rosa dei venti** con gli 8 venti del Mediterraneo. La lancetta punta da dove arriva il vento, il ventaglio mostra quanto girerà nelle prossime 6 ore, le scie animate scorrono nella direzione e alla velocità reali. Se nelle prossime 24 ore piove, un arco azzurro sull'anello mostra da dove arriva la pioggia, con il lato da chiudere.
 - **Prossime 24 ore**: barre con media e raffiche. Trascinando sul grafico la rosa mostra l'ora scelta.
 - **Prossimi giorni**: vento dominante, massimo e raffica massima, con il dettaglio ogni 3 ore.
 - **Pioggia**: se piove adesso e quanto (mm), o con che probabilità, sotto il vento. Nel grafico delle 24 ore una barretta azzurra per ora, nei giorni la probabilità massima e il totale, nel dettaglio la pioggia di ogni 3 ore.
