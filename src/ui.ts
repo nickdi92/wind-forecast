@@ -8,6 +8,12 @@ export function needleIcon(dir: number, warm: boolean, size = 18): string {
   </svg>`;
 }
 
+/** @param label Read by screen readers when no text next to the drop says it is rain. */
+export function dropIcon(size = 12, label?: string): string {
+  const a11y = label ? `role="img" aria-label="${label}"` : 'aria-hidden="true"';
+  return `<svg class="drop-icon" width="${size}" height="${size}" viewBox="0 0 12 12" ${a11y}><path d="M6 1C6 1 2.2 5.2 2.2 7.6a3.8 3.8 0 0 0 7.6 0C9.8 5.2 6 1 6 1Z"/></svg>`;
+}
+
 export const escapeHtml = (s: string): string =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 

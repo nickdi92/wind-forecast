@@ -33,6 +33,24 @@ final class ForecastTests: XCTestCase {
         XCTAssertEqual(s.point(at: romeDate("2026-10-22T14:10"))?.time, "2026-10-22T14:00")
     }
 
+    func testLiveReadingTakesRainFromTheForecastForItsHour() {
+        let live = HourPoint(time: "2026-10-22T13:15", speed: 31, gust: 44, dir: 300)
+        let base = snapshot(current: live)
+        var hours = base.hours
+        hours[13] = HourPoint(time: "2026-10-22T13:00", speed: 20, gust: 30, dir: 310, rain: 0.8, rainChance: 70)
+        let s = Snapshot(place: base.place, source: base.source, timezone: base.timezone, current: live, hours: hours, fetchedAt: base.fetchedAt)
+        XCTAssertEqual(
+            s.point(at: romeDate("2026-10-22T13:50")),
+            HourPoint(time: "2026-10-22T13:15", speed: 31, gust: 44, dir: 300, rain: 0.8, rainChance: 70)
+        )
+    }
+
+    func testPointSavedBeforeRainWasAddedDecodesAsDry() throws {
+        let json = #"{"time":"2026-10-22T13:00","speed":12,"gust":20,"dir":300}"#
+        let p = try JSONDecoder().decode(HourPoint.self, from: Data(json.utf8))
+        XCTAssertEqual(p, HourPoint(time: "2026-10-22T13:00", speed: 12, gust: 20, dir: 300, rain: 0, rainChance: 0))
+    }
+
     func testForecastOlderThanTwoDaysIsTooOldToShowAsNow() {
         let s = snapshot(fetchedAt: romeDate("2026-10-22T13:00"))
         XCTAssertFalse(s.isTooOld(at: romeDate("2026-10-24T12:59")))
@@ -62,13 +80,27 @@ final class ForecastTests: XCTestCase {
         XCTAssertEqual(s.fetchedAt, fetched)
     }
 
-    func testForecastURLAsksForWindInKmh() {
+    func testDecodesRainForTheHourItFallsIn() throws {
+        // Open-Meteo stamps rain at the end of the hour: 0.8 mm fell between 13 and 14.
+        let json = """
+        {"timezone":"Europe/Rome",
+         "hourly":{"time":["2026-10-22T13:00","2026-10-22T14:00","2026-10-22T15:00"],
+                   "wind_speed_10m":[12.0,14.0,15.0],"wind_gusts_10m":[24.0,30.0,31.0],"wind_direction_10m":[305,320,320],
+                   "precipitation":[0.0,0.8,0.0],"precipitation_probability":[10,70,null]}}
+        """
+        let s = try OpenMeteo.decode(Data(json.utf8), place: Place(lat: 40.92, lon: 9.5, name: "Olbia"), source: .gps, fetchedAt: Date())
+        XCTAssertEqual(s.hours.map(\.rain), [0.8, 0, 0])
+        XCTAssertEqual(s.hours.map(\.rainChance), [70, 0, 0])
+    }
+
+    func testForecastURLAsksForWindInKmhAndHourlyRain() {
         let url = OpenMeteo.forecastURL(lat: 40.9234567, lon: 9.5)
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!
         let q = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value!) })
         XCTAssertEqual(q["latitude"], "40.9235")
         XCTAssertEqual(q["wind_speed_unit"], "kmh")
         XCTAssertEqual(q["timezone"], "auto")
-        XCTAssertEqual(q["hourly"], "wind_speed_10m,wind_gusts_10m,wind_direction_10m")
+        XCTAssertEqual(q["current"], "wind_speed_10m,wind_gusts_10m,wind_direction_10m")
+        XCTAssertEqual(q["hourly"], "wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation,precipitation_probability")
     }
 }

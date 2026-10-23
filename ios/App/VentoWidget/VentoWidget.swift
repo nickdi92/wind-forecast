@@ -33,6 +33,7 @@ private extension Color {
     static let sand = Color(236, 191, 142)
     static let warn = Color(245, 196, 81)
     static let danger = Color(255, 143, 125)
+    static let rain = Color(147, 189, 245)
 }
 
 /// The sky glows more as the wind rises, like body::before in the web app.
@@ -196,9 +197,21 @@ private struct ReadingBlock: View {
                 Needle(dir: r.dir, accent: r.accent).frame(width: 34, height: 34)
             }
             Speed(value: unit.convert(r.point.speed), unit: unit, size: 38)
-            Text("raffiche \(unit.convert(r.point.gust))")
-                .font(.system(size: 13, weight: .medium).width(.condensed))
-                .foregroundStyle(r.point.gust >= gustWarn ? Color.warn : Color.ink2)
+            HStack(spacing: 4) {
+                Text("raffiche \(unit.convert(r.point.gust))")
+                    .foregroundStyle(r.point.gust >= gustWarn ? Color.warn : Color.ink2)
+                Spacer(minLength: 0)
+                if let rain = rainShort(r.point) {
+                    HStack(spacing: 2) {
+                        Image(systemName: "drop.fill").font(.system(size: 9))
+                        Text(rain)
+                    }
+                    .foregroundStyle(Color.rain)
+                }
+            }
+            .font(.system(size: 13, weight: .medium).width(.condensed))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
         }
     }
 }
@@ -253,17 +266,20 @@ private struct Medium: View {
     }
 }
 
-/// Mean speed and gusts hour by hour, with the 40 km/h warning line, like the 24h chart in the app.
+/// Mean speed and gusts hour by hour, with the 40 km/h warning line and rain underneath, like the 24h chart in the app.
 private struct HoursChart: View {
     let hours: [HourPoint]
     let accent: Color
+
+    private static let rainBand: CGFloat = 6
 
     var body: some View {
         let top = max(gustWarn * 1.5, hours.map(\.gust).max() ?? 0)
         VStack(spacing: 3) {
             GeometryReader { g in
                 let slot = g.size.width / CGFloat(max(hours.count, 1))
-                let y = { (v: Double) in g.size.height * (1 - CGFloat(v / top)) }
+                let windHeight = g.size.height - Self.rainBand - 2
+                let y = { (v: Double) in windHeight * (1 - CGFloat(v / top)) }
                 ZStack(alignment: .topLeading) {
                     Path { p in
                         p.move(to: CGPoint(x: 0, y: y(gustWarn)))
@@ -274,13 +290,19 @@ private struct HoursChart: View {
                         let x = CGFloat(i) * slot + slot * 0.2
                         RoundedRectangle(cornerRadius: 1.5)
                             .fill((h.gust >= gustWarn ? Color.warn : accent).opacity(0.28))
-                            .frame(width: slot * 0.6, height: max(2, g.size.height - y(h.gust)))
+                            .frame(width: slot * 0.6, height: max(2, windHeight - y(h.gust)))
                             .offset(x: x, y: y(h.gust))
                         RoundedRectangle(cornerRadius: 1.5)
                             .fill(accent)
                             .widgetAccentable()
-                            .frame(width: slot * 0.6, height: max(2, g.size.height - y(h.speed)))
+                            .frame(width: slot * 0.6, height: max(2, windHeight - y(h.speed)))
                             .offset(x: x, y: y(h.speed))
+                        if let rh = rainHeight(h) {
+                            RoundedRectangle(cornerRadius: 1)
+                                .fill(Color.rain.opacity(h.rain >= rainMin ? 1 : 0.4))
+                                .frame(width: slot * 0.6, height: rh)
+                                .offset(x: x, y: g.size.height - rh)
+                        }
                     }
                 }
             }
@@ -293,6 +315,12 @@ private struct HoursChart: View {
             .font(.system(size: 10, weight: .medium).width(.condensed))
             .foregroundStyle(Color.ink3)
         }
+    }
+
+    /// Same scale as rainBar in src/chart.ts: full band from 6 mm, a stub when rain is only possible.
+    private func rainHeight(_ h: HourPoint) -> CGFloat? {
+        if h.rain >= rainMin { return max(1.5, Self.rainBand * CGFloat((min(h.rain, 6) / 6).squareRoot())) }
+        return h.rainChance >= rainPossible ? 1.5 : nil
     }
 }
 

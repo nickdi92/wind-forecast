@@ -17,6 +17,7 @@ const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const REVERSE_URL = 'https://api.bigdatacloud.net/data/reverse-geocode-client';
 
 const WIND_VARS = 'wind_speed_10m,wind_gusts_10m,wind_direction_10m';
+const RAIN_VARS = 'precipitation,precipitation_probability';
 
 async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(url, { signal: signal ?? AbortSignal.timeout(12_000) });
@@ -29,8 +30,8 @@ export function fetchForecast(lat: number, lon: number): Promise<OpenMeteoRespon
     latitude: lat.toFixed(4),
     longitude: lon.toFixed(4),
     current: WIND_VARS,
-    hourly: WIND_VARS,
-    daily: 'wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant',
+    hourly: `${WIND_VARS},${RAIN_VARS}`,
+    daily: 'wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,precipitation_sum,precipitation_probability_max',
     timezone: 'auto',
     forecast_days: '5',
     wind_speed_unit: 'kmh',

@@ -8,6 +8,8 @@ const hours = (gusts: number[], dir = 315): HourPoint[] =>
     speed: gust * 0.6,
     gust,
     dir,
+    rain: 0,
+    rainChance: 0,
   }));
 
 describe('gustAlert', () => {

@@ -13,9 +13,11 @@ import { DayList } from './days';
 import { buildForecast, type Forecast, type HourPoint, type OpenMeteoResponse } from './forecast';
 import { agoLabel, alertCopy, hourLabel, localIso } from './format';
 import { isNative, syncPayload, vento, type AlertsStatus } from './native';
+import { rainLabel, rainShort } from './rain';
 import { Rose } from './rose';
 import { Search } from './search';
 import { load, save } from './storage';
+import { dropIcon } from './ui';
 import { beaufort, convertSpeed, UNIT_LABEL, windFrom, type SpeedUnit } from './wind';
 
 registerSW({ immediate: true });
@@ -110,6 +112,7 @@ function renderReading(): void {
   const w = windFrom(p.dir);
   const bf = beaufort(p.speed);
   const now = selectedIndex() === null;
+  const rain = rainShort(p);
 
   document.documentElement.dataset.warm = !calm && w.warm ? '1' : '0';
   document.documentElement.style.setProperty('--force', String(bf.force));
@@ -123,13 +126,14 @@ function renderReading(): void {
     <h1 class="wind-name">${calm ? 'Calma' : w.name}</h1>
     <p class="speed"><span class="num">${convertSpeed(p.speed, unit)}</span><span class="u">${UNIT_LABEL[unit]}</span></p>
     <p class="desc">${calm ? 'Aria ferma' : `Da ${w.direction}`}, raffiche fino a ${convertSpeed(p.gust, unit)} ${UNIT_LABEL[unit]}</p>
-    <p class="desc soft">Forza ${bf.force}, ${bf.label.toLowerCase()}</p>`;
+    <p class="desc soft">Forza ${bf.force}, ${bf.label.toLowerCase()}</p>
+    <p class="desc soft rain-line${rain ? ' wet' : ''}">${dropIcon(13)}${rainLabel(p)}</p>`;
 
   els.reading.querySelector('#back-now')?.addEventListener('click', () => selectHour(null));
 
   // On phones the chart sits below the rose: repeat the reading right above it.
   const label = now ? 'Adesso' : `Alle ${hourLabel(p.time)}`;
-  els.readout.innerHTML = `${label}: <strong>${calm ? 'calma' : w.name}</strong>, ${convertSpeed(p.speed, unit)} ${UNIT_LABEL[unit]}, raffiche ${convertSpeed(p.gust, unit)}${
+  els.readout.innerHTML = `${label}: <strong>${calm ? 'calma' : w.name}</strong>, ${convertSpeed(p.speed, unit)} ${UNIT_LABEL[unit]}, raffiche ${convertSpeed(p.gust, unit)}${rain ? `, pioggia ${rain}` : ''}${
     now ? '' : ' <button type="button" class="link" data-now>adesso</button>'
   }`;
   els.readout.querySelector('[data-now]')?.addEventListener('click', () => selectHour(null));

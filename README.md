@@ -7,6 +7,7 @@ PWA installabile che mostra il vento dove sei: che vento è (maestrale, scirocco
 - **Rosa dei venti** con gli 8 venti del Mediterraneo. La lancetta punta da dove arriva il vento, il ventaglio mostra quanto girerà nelle prossime 6 ore, le scie animate scorrono nella direzione e alla velocità reali.
 - **Prossime 24 ore**: barre con media e raffiche. Trascinando sul grafico la rosa mostra l'ora scelta.
 - **Prossimi giorni**: vento dominante, massimo e raffica massima, con il dettaglio ogni 3 ore.
+- **Pioggia**: se piove adesso e quanto (mm), o con che probabilità, sotto il vento. Nel grafico delle 24 ore una barretta azzurra per ora, nei giorni la probabilità massima e il totale, nel dettaglio la pioggia di ogni 3 ore.
 - **Avvisi raffiche**: da 40 km/h attenzione, da 60 km/h pericolo, con consigli per il camper.
 - **Ricerca** di un altro posto, con i posti cercati di recente.
 - **Unità**: km/h, nodi o m/s (tocca l'unità in alto).
@@ -18,7 +19,7 @@ PWA installabile che mostra il vento dove sei: che vento è (maestrale, scirocco
 ```bash
 npm install
 npm run dev      # server locale
-npm test         # test della logica (venti, Beaufort, avvisi, previsioni)
+npm test         # test della logica (venti, Beaufort, avvisi, previsioni, pioggia)
 npm run build    # build di produzione in dist/
 npm run icons    # rigenera le icone PWA da public/favicon.svg
 ```
@@ -29,7 +30,7 @@ La geolocalizzazione funziona solo su `localhost` o HTTPS.
 
 L'app usa la stessa pagina dentro [Capacitor](https://capacitorjs.com/), più due parti native in Swift:
 
-- **Widget** (schermata Home e blocco schermo): vento adesso, raffiche e prossime 12 ore. Se il posto è la posizione GPS, il widget la segue da solo.
+- **Widget** (schermata Home e blocco schermo): vento adesso, raffiche, pioggia e prossime 12 ore. Se il posto è la posizione GPS, il widget la segue da solo.
 - **Avvisi raffiche**: notifica quando nelle previsioni compare una raffica da 40 km/h, e un promemoria un'ora prima che inizi. Le raffiche pericolose (da 60 km/h) passano anche con la modalità Full immersion. Funzionano ad app chiusa grazie all'aggiornamento in background, che però iOS fa partire quando vuole.
 
 Struttura:

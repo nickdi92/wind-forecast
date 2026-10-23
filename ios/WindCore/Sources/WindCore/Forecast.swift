@@ -6,12 +6,33 @@ public struct HourPoint: Codable, Equatable, Sendable {
     public let speed: Double
     public let gust: Double
     public let dir: Double
+    /// mm expected from `time` to the next hour.
+    public let rain: Double
+    /// % chance of rain in the same hour.
+    public let rainChance: Double
 
-    public init(time: String, speed: Double, gust: Double, dir: Double) {
+    public init(time: String, speed: Double, gust: Double, dir: Double, rain: Double = 0, rainChance: Double = 0) {
         self.time = time
         self.speed = speed
         self.gust = gust
         self.dir = dir
+        self.rain = rain
+        self.rainChance = rainChance
+    }
+
+    /// Snapshots saved, and payloads sent by the web app, before rain was added read as dry.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        time = try c.decode(String.self, forKey: .time)
+        speed = try c.decode(Double.self, forKey: .speed)
+        gust = try c.decode(Double.self, forKey: .gust)
+        dir = try c.decode(Double.self, forKey: .dir)
+        rain = try c.decodeIfPresent(Double.self, forKey: .rain) ?? 0
+        rainChance = try c.decodeIfPresent(Double.self, forKey: .rainChance) ?? 0
+    }
+
+    func with(rainOf other: HourPoint) -> HourPoint {
+        HourPoint(time: time, speed: speed, gust: gust, dir: dir, rain: other.rain, rainChance: other.rainChance)
     }
 }
 
@@ -107,8 +128,10 @@ public struct Snapshot: Codable, Equatable, Sendable {
     }
 
     public func point(at date: Date) -> HourPoint? {
-        if let current, current.time.prefix(13) == clock.iso(date).prefix(13) { return current }
-        return upcoming(from: date, count: 1).first
+        let hour = upcoming(from: date, count: 1).first
+        // The live reading carries no rain: take the forecast for its hour.
+        if let current, current.time.prefix(13) == clock.iso(date).prefix(13) { return hour.map(current.with(rainOf:)) ?? current }
+        return hour
     }
 
     public func with(place: Place) -> Snapshot {

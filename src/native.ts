@@ -1,6 +1,6 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import type { Place, PlaceSource } from './api';
-import type { OpenMeteoResponse } from './forecast';
+import { hourPoints, type HourPoint, type OpenMeteoResponse } from './forecast';
 import type { SpeedUnit } from './wind';
 
 /** Running inside the iOS app rather than a browser. */
@@ -11,20 +11,14 @@ export interface AlertsStatus {
   enabled: boolean;
 }
 
-interface Point {
-  time: string;
-  speed: number;
-  gust: number;
-  dir: number;
-}
-
 export interface SyncPayload {
   place: { lat: number; lon: number; name: string };
   source: PlaceSource;
   unit: SpeedUnit;
   timezone: string;
-  current: Point;
-  hours: Point[];
+  /** The widget takes rain for this reading from `hours`. */
+  current: Omit<HourPoint, 'rain' | 'rainChance'>;
+  hours: HourPoint[];
   fetchedAt: number;
 }
 
@@ -43,16 +37,14 @@ export function syncPayload(
   shown: { place: Place; source: PlaceSource; data: OpenMeteoResponse; fetchedAt: number },
   unit: SpeedUnit,
 ): SyncPayload {
-  const { current: c, hourly: h } = shown.data;
+  const c = shown.data.current;
   return {
     place: { lat: shown.place.lat, lon: shown.place.lon, name: shown.place.name },
     source: shown.source,
     unit,
     timezone: shown.data.timezone,
     current: { time: c.time, speed: c.wind_speed_10m, gust: c.wind_gusts_10m, dir: c.wind_direction_10m },
-    hours: h.time
-      .map((time, i) => ({ time, speed: h.wind_speed_10m[i], gust: h.wind_gusts_10m[i], dir: h.wind_direction_10m[i] }))
-      .filter((p) => p.speed != null && p.gust != null && p.dir != null),
+    hours: hourPoints(shown.data.hourly).filter((p) => p.speed != null && p.gust != null && p.dir != null),
     fetchedAt: shown.fetchedAt,
   };
 }

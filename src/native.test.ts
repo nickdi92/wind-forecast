@@ -10,6 +10,9 @@ const data: OpenMeteoResponse = {
     wind_speed_10m: [22, 25, 27],
     wind_gusts_10m: [35, 41, 44],
     wind_direction_10m: [310, 315, 320],
+    // Stamped at the end of the hour: 0.8 mm between 13 and 14.
+    precipitation: [0, 0.8, 0],
+    precipitation_probability: [10, 70, 40],
   },
   daily: { time: [], wind_speed_10m_max: [], wind_gusts_10m_max: [], wind_direction_10m_dominant: [] },
 };
@@ -17,7 +20,7 @@ const data: OpenMeteoResponse = {
 const shown = { place: { lat: 40.92, lon: 9.5, name: 'Olbia', detail: 'Sardegna' }, source: 'gps' as const, data, fetchedAt: 1_700 };
 
 describe('syncPayload', () => {
-  it('hands the widget the place, unit, live reading and hourly points', () => {
+  it('hands the widget the place, unit, live reading and hourly wind and rain', () => {
     expect(syncPayload(shown, 'kn')).toEqual({
       place: { lat: 40.92, lon: 9.5, name: 'Olbia' },
       source: 'gps',
@@ -25,9 +28,9 @@ describe('syncPayload', () => {
       timezone: 'Europe/Rome',
       current: { time: '2026-10-22T13:15', speed: 24, gust: 38, dir: 315 },
       hours: [
-        { time: '2026-10-22T13:00', speed: 22, gust: 35, dir: 310 },
-        { time: '2026-10-22T14:00', speed: 25, gust: 41, dir: 315 },
-        { time: '2026-10-22T15:00', speed: 27, gust: 44, dir: 320 },
+        { time: '2026-10-22T13:00', speed: 22, gust: 35, dir: 310, rain: 0.8, rainChance: 70 },
+        { time: '2026-10-22T14:00', speed: 25, gust: 41, dir: 315, rain: 0, rainChance: 40 },
+        { time: '2026-10-22T15:00', speed: 27, gust: 44, dir: 320, rain: 0, rainChance: 0 },
       ],
       fetchedAt: 1_700,
     });

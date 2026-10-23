@@ -127,13 +127,16 @@ final class WidgetLocation: NSObject, CLLocationManagerDelegate {
 }
 
 extension Snapshot {
-    /// A breezy Maestrale over Olbia, for the widget gallery.
+    /// A breezy Maestrale over Olbia with a passing shower, for the widget gallery.
     static var preview: Snapshot {
         let clock = LocalClock(identifier: "Europe/Rome")
         let start = Calendar.current.dateInterval(of: .hour, for: .now)?.start ?? .now
         let speeds: [Double] = [22, 24, 27, 31, 35, 38, 36, 32, 28, 25, 22, 20, 18, 17, 16, 16, 15, 15, 14, 14, 13, 13, 12, 12]
         let hours = speeds.enumerated().map { i, s in
-            HourPoint(time: clock.iso(start.addingTimeInterval(Double(i) * 3_600)), speed: s, gust: s * 1.45, dir: 310 + Double(i))
+            HourPoint(
+                time: clock.iso(start.addingTimeInterval(Double(i) * 3_600)), speed: s, gust: s * 1.45, dir: 310 + Double(i),
+                rain: (3...6).contains(i) ? [0.4, 1.8, 2.6, 0.7][i - 3] : 0, rainChance: (2...7).contains(i) ? 60 : 10
+            )
         }
         return Snapshot(place: Place(lat: 40.92, lon: 9.5, name: "Olbia"), source: .gps, timezone: "Europe/Rome", current: nil, hours: hours, fetchedAt: .now)
     }

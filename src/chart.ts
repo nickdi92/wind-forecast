@@ -1,15 +1,28 @@
 import { GUST_WARN } from './alerts';
 import type { HourPoint } from './forecast';
 import { hourLabel } from './format';
+import { RAIN_MIN, RAIN_POSSIBLE, rainShort } from './rain';
 import { needleIcon } from './ui';
 import { convertSpeed, UNIT_LABEL, windFrom, type SpeedUnit } from './wind';
 
 const H = 168;
 const TOP = 30; // room for direction needles
-const BOTTOM = 22; // room for hour labels
+const LABELS = 22; // room for hour labels
+const RAIN_H = 12; // rain band between bars and labels
+const BOTTOM = LABELS + RAIN_H + 4;
+/** Rain at or above this fills the band; square-root scale so drizzle still shows. */
+const RAIN_FULL = 6; // mm
+
+/** Height from the amount when rain is expected, a faint stub when it is only possible. */
+function rainBar(h: HourPoint, x: number, w: number): string {
+  const wet = h.rain >= RAIN_MIN;
+  if (!wet && h.rainChance < RAIN_POSSIBLE) return '';
+  const rh = wet ? Math.max(2, RAIN_H * Math.sqrt(Math.min(h.rain, RAIN_FULL) / RAIN_FULL)) : 2;
+  return `<rect class="rain${wet ? '' : ' maybe'}" x="${x.toFixed(1)}" y="${(H - LABELS - rh).toFixed(1)}" width="${w.toFixed(1)}" height="${rh.toFixed(1)}" rx="1"/>`;
+}
 
 /**
- * 24-hour bar chart: solid bar = mean wind, ghost bar = gusts.
+ * 24-hour bar chart: solid bar = mean wind, ghost bar = gusts, small bar underneath = rain.
  * Drag or use arrow keys to scrub; the selected hour drives the rose.
  */
 export class HourChart {
@@ -60,9 +73,10 @@ export class HourChart {
     this.selected = selected;
     const sel = selected === null ? null : hours[selected];
     this.root.setAttribute('aria-valuenow', String(selected ?? 0));
+    const rain = sel && rainShort(sel);
     this.root.setAttribute(
       'aria-valuetext',
-      sel ? `Ore ${hourLabel(sel.time)}, ${convertSpeed(sel.speed, unit)} ${UNIT_LABEL[unit]}` : 'Adesso',
+      sel ? `Ore ${hourLabel(sel.time)}, ${convertSpeed(sel.speed, unit)} ${UNIT_LABEL[unit]}${rain ? `, pioggia ${rain}` : ''}` : 'Adesso',
     );
     this.draw();
   }
@@ -95,6 +109,7 @@ export class HourChart {
       bars += `<g class="bar ${cls}">
         <rect class="gust" x="${x.toFixed(1)}" y="${y(h.gust).toFixed(1)}" width="${barW.toFixed(1)}" height="${(H - BOTTOM - y(h.gust)).toFixed(1)}" rx="2"/>
         <rect class="mean" x="${x.toFixed(1)}" y="${y(h.speed).toFixed(1)}" width="${barW.toFixed(1)}" height="${(H - BOTTOM - y(h.speed)).toFixed(1)}" rx="2"/>
+        ${rainBar(h, x, barW)}
       </g>`;
       const cx = i * slot + slot / 2;
       if (i % 3 === 0) {

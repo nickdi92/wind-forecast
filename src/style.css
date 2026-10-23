@@ -12,6 +12,7 @@
   --sand-rgb: 236, 191, 142;
   --alert: #f5c451;
   --danger: #ff8f7d;
+  --rain: #93bdf5;
   --accent: var(--sea);
   --accent-rgb: var(--sea-rgb);
   /* Beaufort force 0–12, set from JS: the sky glows more as the wind rises. */
@@ -433,6 +434,25 @@ button {
   margin-top: 1px !important;
 }
 
+.rain-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.drop-icon {
+  flex: none;
+  fill: var(--ink-3);
+}
+
+.rain-line.wet,
+.rain-line.wet .drop-icon,
+.day-rain .drop-icon {
+  color: var(--rain);
+  fill: var(--rain);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -565,6 +585,14 @@ body.loading .wind-name.small {
   opacity: 0.38;
 }
 
+.chart .rain {
+  fill: var(--rain);
+}
+
+.chart .rain.maybe {
+  fill-opacity: 0.4;
+}
+
 .chart .hour {
   fill: var(--ink-3);
   font: 11px var(--sans);
@@ -616,6 +644,11 @@ body.loading .wind-name.small {
   margin-left: 6px;
 }
 
+.key.rain {
+  background: var(--rain);
+  margin-left: 6px;
+}
+
 .legend-tip {
   flex-basis: 100%;
 }
@@ -644,7 +677,7 @@ body.loading .wind-name.small {
   box-sizing: border-box;
   width: 100%;
   display: grid;
-  grid-template-columns: 70px 1fr auto 14px;
+  grid-template-columns: 70px 1fr 42px auto 14px;
   align-items: center;
   gap: 10px;
   padding: 11px 0;
@@ -665,7 +698,7 @@ body.loading .wind-name.small {
 
 @media (max-width: 360px) {
   .day > button {
-    grid-template-columns: 58px 1fr auto 12px;
+    grid-template-columns: 58px 1fr 38px auto 12px;
     gap: 8px;
   }
 
@@ -694,6 +727,29 @@ body.loading .wind-name.small {
 
 .day-wind.warm em {
   color: var(--sand);
+}
+
+.day-rain {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: end;
+  align-items: center;
+  column-gap: 3px;
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--rain);
+  font-variant-numeric: tabular-nums;
+}
+
+.day-rain b {
+  font-weight: 600;
+}
+
+.day-rain small {
+  grid-column: 1 / -1;
+  text-align: right;
+  font-size: 11px;
+  color: var(--ink-3);
 }
 
 .day-val {
@@ -779,6 +835,13 @@ body.loading .wind-name.small {
 .slot-h,
 .slot-g {
   color: var(--ink-3);
+}
+
+.slot-r {
+  min-height: 1.45em;
+  font-size: 11px;
+  color: var(--rain);
+  white-space: nowrap;
 }
 
 .slots b {
