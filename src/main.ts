@@ -129,6 +129,9 @@ function renderReading(): void {
     <p class="desc soft">Forza ${bf.force}, ${bf.label.toLowerCase()}</p>
     <p class="desc soft rain-line${rain ? ' wet' : ''}">${dropIcon(13)}${rainLabel(p)}</p>${
       spell ? `<p class="desc soft">${rainSpellCopy(spell)}</p>` : ''
+    }${
+      // The ring reads like a clock face: say what the arc means.
+      spell?.spread ? '<p class="desc hint"><span class="arc-key"></span>L’arco azzurro sulla rosa indica da dove arriva la pioggia, come la lancetta per il vento.</p>' : ''
     }`;
 
   els.reading.querySelector('#back-now')?.addEventListener('click', () => selectHour(null));

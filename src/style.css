@@ -463,6 +463,22 @@ button {
   fill: var(--ink-3);
 }
 
+.desc.hint {
+  color: var(--ink-3);
+  font-size: 13px;
+  margin-top: 4px !important;
+}
+
+.arc-key {
+  display: inline-block;
+  width: 14px;
+  height: 5px;
+  margin-right: 6px;
+  vertical-align: 2px;
+  border-radius: 1px;
+  background: rgba(var(--rain-rgb), 0.6);
+}
+
 .rain-line.wet,
 .rain-line.wet .drop-icon,
 .day-rain .drop-icon {
