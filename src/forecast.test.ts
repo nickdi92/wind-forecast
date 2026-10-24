@@ -68,6 +68,21 @@ describe('buildForecast', () => {
     expect(next24[2]).toMatchObject({ time: '2026-10-22T15:00', rain: 0, rainChance: 32 });
   });
 
+  it('reads temperature and felt temperature when the forecast has them', () => {
+    const r = fixture();
+    r.current.temperature_2m = 9.4;
+    r.current.apparent_temperature = 3.6;
+    r.hourly.temperature_2m = r.hourly.time.map(() => 8);
+    r.hourly.apparent_temperature = r.hourly.time.map(() => 2);
+    const f = buildForecast(r);
+    expect(f.current).toMatchObject({ temp: 9.4, feels: 3.6 });
+    expect(f.next24[3]).toMatchObject({ temp: 8, feels: 2 });
+  });
+
+  it('leaves temperature out of forecasts cached before it was added', () => {
+    expect('temp' in buildForecast(fixture()).current).toBe(false);
+  });
+
   it('treats missing rain values as dry', () => {
     const r = fixture();
     (r.hourly.precipitation_probability as (number | null)[])[14] = null;

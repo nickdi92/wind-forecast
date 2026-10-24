@@ -20,6 +20,7 @@ const REVERSE_URL = 'https://api.bigdatacloud.net/data/reverse-geocode-client';
 
 const WIND_VARS = 'wind_speed_10m,wind_gusts_10m,wind_direction_10m';
 const RAIN_VARS = 'precipitation,precipitation_probability';
+const TEMP_VARS = 'temperature_2m,apparent_temperature';
 const SEA_VARS =
   'wave_height,wave_direction,wave_period,wind_wave_height,wind_wave_direction,swell_wave_height,swell_wave_direction,swell_wave_period';
 
@@ -33,8 +34,8 @@ export function fetchForecast(lat: number, lon: number): Promise<OpenMeteoRespon
   const q = new URLSearchParams({
     latitude: lat.toFixed(4),
     longitude: lon.toFixed(4),
-    current: WIND_VARS,
-    hourly: `${WIND_VARS},${RAIN_VARS}`,
+    current: `${WIND_VARS},${TEMP_VARS}`,
+    hourly: `${WIND_VARS},${RAIN_VARS},${TEMP_VARS}`,
     daily: 'wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,precipitation_sum,precipitation_probability_max',
     timezone: 'auto',
     forecast_days: '5',

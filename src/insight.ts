@@ -1,7 +1,17 @@
 import { GUST_DANGER, GUST_WARN } from './alerts';
 import type { Forecast, HourPoint } from './forecast';
 import { cap, dayWord, whenLabel } from './format';
-import { angleBetween, beaufort, CALM_BELOW, intensityWord, speedLabel, windFrom, type SpeedUnit, type Wind } from './wind';
+import {
+  angleBetween,
+  beaufort,
+  CALM_BELOW,
+  intensityWord,
+  mediterraneanNames,
+  speedLabel,
+  windFrom,
+  type SpeedUnit,
+  type Wind,
+} from './wind';
 
 /** How far "the next hours" reach in the summary. */
 export const OUTLOOK_HOURS = 12;
@@ -12,6 +22,20 @@ const LIGHT = 12; // km/h
 
 /** Smallest change in mean wind worth a word: 6 km/h, or 30% of a stronger wind. */
 const meaningful = (kmh: number): number => Math.max(6, kmh * 0.3);
+
+// The same sentence with Mediterranean names or with plain directions.
+/** Subject: "Maestrale" or "vento da nord-ovest". */
+const ref = (w: Wind): string => (mediterraneanNames() ? w.name : `vento da ${w.direction}`);
+/** Subject with strength: "Maestrale teso" or "vento teso da nord-ovest". */
+const withStrength = (w: Wind, kmh: number): string =>
+  mediterraneanNames() ? `${w.name} ${intensityWord(kmh, w.feminine)}` : `vento ${intensityWord(kmh)} da ${w.direction}`;
+/** After a colon: "Maestrale forte" or "forte da nord-ovest". */
+const strengthTag = (w: Wind, kmh: number): string =>
+  mediterraneanNames() ? `${w.name} ${intensityWord(kmh, w.feminine)}` : `${intensityWord(kmh)} da ${w.direction}`;
+/** Just where from: "Maestrale" or "da nord-ovest". */
+const fromTag = (w: Wind): string => (mediterraneanNames() ? w.name : `da ${w.direction}`);
+const turnsTo = (w: Wind): string => (mediterraneanNames() ? `gira a ${w.name}` : `gira da ${w.direction}`);
+const cap1 = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 const hoursApart = (a: string, b: string): number => (Date.parse(`${b.slice(0, 16)}:00Z`) - Date.parse(`${a.slice(0, 16)}:00Z`)) / 3_600_000;
 
@@ -83,11 +107,10 @@ export function headline(now: HourPoint, hours: HourPoint[], today: string, unit
   if (now.speed < CALM_BELOW) {
     const peak = trend.kind === 'rinforzo' ? hours.find((h) => h.time === trend.at) : undefined;
     return peak
-      ? `Vento quasi assente, in aumento ${when(peak.time)}: ${windFrom(peak.dir).name} fino a ${speedLabel(peak.speed, unit)}.`
+      ? `Vento quasi assente, in aumento ${when(peak.time)}: ${ref(windFrom(peak.dir))} fino a ${speedLabel(peak.speed, unit)}.`
       : 'Vento quasi assente nelle prossime ore.';
   }
-  const w = windFrom(now.dir);
-  const name = `${w.name} ${intensityWord(now.speed, w.feminine)}`;
+  const name = cap1(withStrength(windFrom(now.dir), now.speed));
   if (trend.kind === 'rinforzo') {
     const eases = trend.easesAt ? `, poi in calo ${when(trend.easesAt)}` : '';
     return `${name}, in rinforzo ${when(trend.at!)} fino a ${speedLabel(trend.speed, unit)}${eases}.`;
@@ -135,9 +158,9 @@ export function daysSentence(f: Forecast, unit: SpeedUnit): string | null {
 
   let s: string;
   if (tomorrow.maxSpeed < LIGHT) s = todayMax >= LIGHT ? `Domani vento in calo, debole tutto il giorno (massimo ${top})` : `Domani vento ancora debole, massimo ${top}`;
-  else if (todayMax - tomorrow.maxSpeed >= step) s = `Domani è previsto un calo del vento: ${tw.name} fino a ${top}`;
-  else if (tomorrow.maxSpeed - todayMax >= step) s = `Domani vento in rinforzo: ${tw.name} ${intensityWord(tomorrow.maxSpeed, tw.feminine)} fino a ${top}`;
-  else s = `Domani vento simile${sameName ? `, ${tw.name}` : `, ma da ${tw.name},`} fino a ${top}`;
+  else if (todayMax - tomorrow.maxSpeed >= step) s = `Domani è previsto un calo del vento: ${fromTag(tw)} fino a ${top}`;
+  else if (tomorrow.maxSpeed - todayMax >= step) s = `Domani vento in rinforzo: ${strengthTag(tw, tomorrow.maxSpeed)} fino a ${top}`;
+  else s = `Domani vento simile${sameName ? `, ${fromTag(tw)}` : `, ma ${mediterraneanNames() ? 'da ' : ''}${fromTag(tw)},`} fino a ${top}`;
 
   const change = later.slice(1).find((d) => {
     const named = d.maxSpeed >= LIGHT && tomorrow.maxSpeed >= LIGHT;
@@ -155,7 +178,7 @@ export function daysSentence(f: Forecast, unit: SpeedUnit): string | null {
     s +=
       change.maxSpeed < LIGHT
         ? `. ${day} vento debole, fino a ${speedLabel(change.maxSpeed, unit)}`
-        : `. ${day} ${cw.name}${verb}, fino a ${speedLabel(change.maxSpeed, unit)}`;
+        : `. ${day} ${ref(cw)}${verb}, fino a ${speedLabel(change.maxSpeed, unit)}`;
   }
   return `${s}.`;
 }
@@ -171,7 +194,7 @@ export function windSummary(f: Forecast, unit: SpeedUnit, coastal = true): strin
   const shiftWhen = shift && (hoursApart(f.current.time, shift.at) <= 2 ? 'A breve' : cap(whenLabel(shift.at, today)));
   return [
     headline(f.current, f.ahead, today, unit, !!shift),
-    shift && `${shiftWhen} gira a ${shift.wind.name}.`,
+    shift && `${shiftWhen} ${turnsTo(shift.wind)}.`,
     gustSentence(f.current, f.ahead, today, unit, coastal),
     daysSentence(f, unit),
   ].filter((s): s is string => !!s);

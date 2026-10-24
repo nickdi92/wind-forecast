@@ -1,4 +1,5 @@
 import { angleBetween, windFrom, windTowards } from './wind';
+import { inIceland, inSardinia } from './zone';
 
 /**
  * How a stretch of coast sits against the wind:
@@ -110,9 +111,120 @@ export const SARDINIA_ISLANDS: readonly (readonly [number, number][])[] = [
   [[41.2, 9.38], [41.25, 9.37], [41.26, 9.45], [41.21, 9.46]],
 ];
 
-/** Sardinia and its sea, up to the middle of the Bocche di Bonifacio. */
-export function inSardinia(lat: number, lon: number): boolean {
-  return lat >= 38.7 && lat <= 41.33 && lon >= 7.95 && lon <= 10.0;
+/**
+ * Iceland in eight stretches. Fjords make it far more ragged than this: the stretches give the
+ * direction the open coast looks to, not that of each fjord.
+ */
+export const ICELAND: readonly CoastSegment[] = [
+  {
+    id: 'faxafloi',
+    name: 'Sud-ovest',
+    places: 'Reykjanes, Keflavík, Reykjavík, Akranes',
+    facing: 280,
+    points: [[63.81, -22.7], [64.08, -22.69], [64.04, -22.25], [64.15, -21.94], [64.32, -22.08], [64.54, -21.92]],
+  },
+  {
+    id: 'snaefellsnes',
+    name: 'Ovest',
+    places: 'Snæfellsnes, Arnarstapi, Stykkishólmur, Breiðafjörður',
+    facing: 250,
+    points: [
+      [64.54, -21.92], [64.72, -22.35], [64.8, -23.1], [64.73, -23.8], [64.89, -24.03], [64.9, -23.7], [65.07, -22.73], [65.15, -21.85],
+      [65.45, -22.2], [65.55, -23.2], [65.5, -24.53],
+    ],
+  },
+  {
+    id: 'vestfirdir',
+    name: 'Fiordi occidentali',
+    places: 'Látrabjarg, Patreksfjörður, Ísafjörður, Hornstrandir',
+    facing: 315,
+    points: [[65.5, -24.53], [65.62, -24.05], [65.87, -23.75], [66.08, -23.55], [66.07, -23.13], [66.16, -23.25], [66.43, -23.1], [66.45, -22.4]],
+  },
+  {
+    id: 'nord',
+    name: 'Nord',
+    places: 'Húnaflói, Skagafjörður, Siglufjörður, Akureyri, Húsavík',
+    facing: 0,
+    points: [
+      [66.45, -22.4], [66.1, -21.7], [65.7, -21.68], [65.4, -20.95], [65.66, -20.28], [66.12, -20.1], [65.75, -19.64], [66.15, -18.91],
+      [65.97, -18.53], [65.68, -18.09], [65.95, -18.18], [66.07, -17.85], [66.04, -17.34], [66.2, -17.15], [66.3, -16.45], [66.54, -16.19],
+    ],
+  },
+  {
+    id: 'nordest',
+    name: 'Nord-est',
+    places: 'Melrakkaslétta, Raufarhöfn, Langanes, Vopnafjörður',
+    facing: 45,
+    points: [[66.54, -16.19], [66.45, -15.95], [66.2, -15.33], [66.38, -14.53], [66.03, -14.8], [65.76, -14.83]],
+  },
+  {
+    id: 'est',
+    name: 'Est',
+    places: 'Fiordi orientali, Seyðisfjörður, Neskaupstaður, Djúpivogur',
+    facing: 90,
+    points: [[65.76, -14.83], [65.55, -14.3], [65.27, -13.57], [65.08, -13.5], [64.93, -14.01], [64.8, -14.05], [64.66, -14.28]],
+  },
+  {
+    id: 'sudest',
+    name: 'Sud-est',
+    places: 'Höfn, Jökulsárlón, Ingólfshöfði',
+    facing: 135,
+    points: [[64.66, -14.28], [64.42, -14.55], [64.24, -14.97], [64.12, -15.55], [64.05, -16.18], [63.8, -16.64]],
+  },
+  {
+    id: 'sud',
+    name: 'Sud',
+    places: 'Vík, Reynisfjara, Þorlákshöfn, Grindavík',
+    facing: 180,
+    points: [
+      [63.8, -16.64], [63.77, -17.3], [63.55, -17.9], [63.45, -18.5], [63.4, -19.13], [63.5, -19.6], [63.53, -20.12], [63.72, -20.75],
+      [63.86, -21.15], [63.85, -21.38], [63.82, -21.7], [63.84, -22.43], [63.81, -22.7],
+    ],
+  },
+];
+
+/** A coast the app knows by stretch, with its own local notes. */
+export interface CoastRegion {
+  id: 'sardegna' | 'islanda';
+  name: string;
+  segments: readonly CoastSegment[];
+  /** Drawn on the map only. */
+  islands: readonly (readonly [number, number][])[];
+  contains: (lat: number, lon: number) => boolean;
+  /** Local effects worth a line, only where they are well known. */
+  notes: (windFromDeg: number) => string[];
+}
+
+export const SARDINIA_REGION: CoastRegion = {
+  id: 'sardegna',
+  name: 'Sardegna',
+  segments: SARDINIA,
+  islands: SARDINIA_ISLANDS,
+  contains: inSardinia,
+  notes: (deg) =>
+    ['O', 'NO', 'E'].includes(windFrom(deg).cardinal)
+      ? ['Nelle Bocche di Bonifacio, tra Santa Teresa e la Corsica, il vento da ovest e da est si incanala e rinforza.']
+      : [],
+};
+
+export const ICELAND_REGION: CoastRegion = {
+  id: 'islanda',
+  name: 'Islanda',
+  segments: ICELAND,
+  // Vestmannaeyjar.
+  islands: [[[63.4, -20.32], [63.46, -20.3], [63.45, -20.22], [63.41, -20.24]]],
+  contains: inIceland,
+  notes: () => [
+    'Nei fiordi il vento si incanala lungo il fiordo: può arrivare da una direzione diversa e soffiare più forte di quanto previsto per la zona.',
+    'Ai piedi delle montagne e sui passi le raffiche possono superare di molto quelle previste: le misure in tempo reale sono su umferdin.is.',
+    'Con vento forte le pianure di sabbia della costa sud, come Skeiðarársandur e Mýrdalssandur, possono dare tempeste di sabbia e ghiaia che rovinano vernice e vetri.',
+  ],
+};
+
+export const REGIONS: readonly CoastRegion[] = [SARDINIA_REGION, ICELAND_REGION];
+
+export function regionAt(lat: number, lon: number): CoastRegion | null {
+  return REGIONS.find((r) => r.contains(lat, lon)) ?? null;
 }
 
 const KM_PER_DEG = 111.2;
@@ -133,12 +245,12 @@ export function distanceToSegment(lat: number, lon: number, seg: CoastSegment): 
   return best;
 }
 
-/** Stretch of Sardinian coast the place is on, when within `maxKm` of it. */
-export function nearestSegment(lat: number, lon: number, maxKm = 12): CoastSegment | null {
-  if (!inSardinia(lat, lon)) return null;
+/** Stretch of the region's coast the place is on, when within `maxKm` of it. */
+export function nearestSegment(region: CoastRegion, lat: number, lon: number, maxKm = 12): CoastSegment | null {
+  if (!region.contains(lat, lon)) return null;
   let best: CoastSegment | null = null;
   let bestKm = maxKm;
-  for (const seg of SARDINIA) {
+  for (const seg of region.segments) {
     const km = distanceToSegment(lat, lon, seg);
     if (km <= bestKm) {
       best = seg;
@@ -153,9 +265,11 @@ export interface CoastReading {
   exposure: Exposure;
 }
 
-export function sardiniaExposure(windFromDeg: number): CoastReading[] {
-  return SARDINIA.map((segment) => ({ segment, exposure: exposure(windFromDeg, segment.facing) }));
+export function regionExposure(region: CoastRegion, windFromDeg: number): CoastReading[] {
+  return region.segments.map((segment) => ({ segment, exposure: exposure(windFromDeg, segment.facing) }));
 }
+
+export const sardiniaExposure = (windFromDeg: number): CoastReading[] => regionExposure(SARDINIA_REGION, windFromDeg);
 
 export const EXPOSURE_COPY: Record<Exposure, { label: string; hint: string }> = {
   esposta: { label: 'Esposta', hint: 'vento dal mare: onde e raffiche arrivano dritte a riva' },
@@ -171,16 +285,6 @@ const joinIt = (items: string[]): string => (items.length < 2 ? items.join('') :
 /** "nord-ovest, ovest e nord" for the stretches with that exposure. */
 export function segmentNames(readings: CoastReading[], kind: Exposure): string {
   return joinIt(readings.filter((r) => r.exposure === kind).map((r) => r.segment.name.toLowerCase()));
-}
-
-/** Local effects worth a line, only where they are well known. */
-export function coastNotes(windFromDeg: number): string[] {
-  const notes: string[] = [];
-  const name = windFrom(windFromDeg).name;
-  if (['Ponente', 'Maestrale', 'Levante'].includes(name)) {
-    notes.push('Nelle Bocche di Bonifacio, tra Santa Teresa e la Corsica, il vento da ovest e da est si incanala e rinforza.');
-  }
-  return notes;
 }
 
 /** Anywhere else: which way a coast should face to be in or out of the wind. */

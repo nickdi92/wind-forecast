@@ -1,7 +1,7 @@
 import { LULL_HOURS } from './alerts';
 import type { HourPoint } from './forecast';
 import { hourLabel, nextHourLabel } from './format';
-import { CALM_BELOW, directionSpread, normalizeDeg, WINDS, windFrom } from './wind';
+import { CALM_BELOW, directionSpread, normalizeDeg, windFrom, windInSentence, windRose } from './wind';
 
 /** Less than this in an hour is a few drops: the app calls it dry. */
 export const RAIN_MIN = 0.1; // mm
@@ -80,10 +80,11 @@ export function rainSpell(hours: HourPoint[]): RainSpell | null {
 /** Named winds inside the arc, clockwise; past three the wind is just variable. */
 function arcWinds({ mean, half }: { mean: number; half: number }): string[] {
   const from = mean - half;
-  const inside = WINDS.filter((w) => Math.abs(((normalizeDeg(w.deg - mean) + 180) % 360) - 180) <= half + 0.5)
+  const inside = windRose()
+    .filter((w) => Math.abs(((normalizeDeg(w.deg - mean) + 180) % 360) - 180) <= half + 0.5)
     .sort((a, b) => normalizeDeg(a.deg - from) - normalizeDeg(b.deg - from))
-    .map((w) => w.name);
-  return inside.length ? inside : [windFrom(mean).name];
+    .map(windInSentence);
+  return inside.length ? inside : [windInSentence(windFrom(mean))];
 }
 
 const joinIt = (items: string[]): string => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`);

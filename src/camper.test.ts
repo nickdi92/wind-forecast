@@ -72,3 +72,35 @@ describe('camperTips', () => {
     expect(guida.text).toContain('24 nodi');
   });
 });
+
+describe('in Iceland', () => {
+  const iceland = (speed: number, gust: number, feels?: number) => {
+    const h = hours(speed, gust).map((p) => ({ ...p, ...(feels != null && { temp: feels + 5, feels }) }));
+    return Object.fromEntries(camperTips(h[0], h, 'kmh', null, 'islanda').map((t) => [t.id, t])) as Partial<Record<Tip['id'], Tip>>;
+  };
+
+  it('warns about doors torn by the wind', () => {
+    expect(iceland(25, 40).portiere).toMatchObject({ level: 'attenzione' });
+    expect(iceland(40, 60).portiere?.level).toBe('pericolo');
+    expect(iceland(10, 20).portiere).toBeUndefined();
+    expect(tips(25, 40).portiere).toBeUndefined(); // not a thing in Sardinia
+  });
+
+  it('points to the measured road gusts', () => {
+    expect(iceland(10, 20).guida!.text).toContain('umferdin.is');
+    expect(iceland(40, 60).guida!.text).toContain('sabbia e ghiaia');
+  });
+
+  it('talks about sneaker waves, not umbrellas', () => {
+    const beach = iceland(10, 15).spiaggia!;
+    expect(beach.text).toContain('Reynisfjara');
+    expect(beach.text).not.toContain('ombrellone');
+    expect(beach.level).toBe('attenzione');
+  });
+
+  it('adds wind chill when it bites, anywhere', () => {
+    expect(iceland(30, 45, -4).freddo).toMatchObject({ level: 'attenzione', short: 'percepiti -4°' });
+    expect(iceland(30, 45, -12).freddo?.level).toBe('pericolo');
+    expect(iceland(30, 45, 6).freddo).toBeUndefined();
+  });
+});

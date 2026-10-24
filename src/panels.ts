@@ -1,16 +1,16 @@
 import type { Place } from './api';
 import { camperTips, worse, type Level, type Tip } from './camper';
 import {
-  coastNotes,
   EXPOSURE_COPY,
   EXPOSURE_MIN,
   genericExposure,
-  inSardinia,
   nearestSegment,
+  regionAt,
+  regionExposure,
   sardiniaExposure,
   segmentNames,
 } from './coast';
-import { coastMap } from './coastmap';
+import { coastMap, exposureDial } from './coastmap';
 import type { Forecast, HourPoint } from './forecast';
 import { cap, dayLabel, hourLabel, whenLabel } from './format';
 import { windSummary } from './insight';
@@ -32,12 +32,16 @@ import {
   beaufortLabel,
   beaufortRange,
   CALM_BELOW,
+  mediterraneanNames,
   speedLabel,
   WINDS,
   windFrom,
+  windRose,
   windTowards,
   type SpeedUnit,
+  type Wind,
 } from './wind';
+import { icelandAbout, isMediterranean, officialSources, type Zone } from './zone';
 
 /** Where the sea data stands: loaded, none for this place, still loading, or the request failed. */
 export type SeaStatus = 'ok' | 'none' | 'loading' | 'failed';
@@ -47,6 +51,7 @@ export interface PanelsInput {
   sea: Sea | null;
   seaStatus: SeaStatus;
   place: Place;
+  zone: Zone;
   unit: SpeedUnit;
 }
 
@@ -54,6 +59,9 @@ type PanelId = 'coste' | 'mare' | 'maestrale' | 'camper' | 'beaufort' | 'rosa';
 
 const LEVEL_CLASS: Record<Level, string> = { ok: '', attenzione: 'warn', pericolo: 'danger' };
 const MAESTRALE = WINDS.findIndex((w) => w.name === 'Maestrale');
+
+/** The wind of an hour in a line: "<strong>Maestrale</strong> da nord-ovest" or "vento da <strong>nord-ovest</strong>". */
+const windLine = (w: Wind): string => (mediterraneanNames() ? `<strong>${w.name}</strong> da ${w.direction}` : `vento da <strong>${w.direction}</strong>`);
 
 /** Hour as the reading says it: "Adesso" or "Alle 15". */
 const whenShown = (p: HourPoint, isNow: boolean): string => (isNow ? 'Adesso' : `Alle ${hourLabel(p.time)}`);
@@ -73,7 +81,7 @@ export class Panels {
     private readonly summary: HTMLElement,
     private readonly facts: HTMLElement,
     private readonly more: HTMLElement,
-    private readonly onPickWind: (name: string | null) => void,
+    private readonly onPickWind: (index: number | null) => void,
   ) {
     facts.addEventListener('click', (e) => {
       const btn = (e.target as Element).closest<HTMLElement>('[data-open]');
@@ -117,17 +125,15 @@ export class Panels {
     if (this.input) this.renderSelection();
   }
 
-  /** From the rose: open the guide on that wind. */
-  showWind(name: string): void {
-    const i = WINDS.findIndex((w) => w.name === name);
-    if (i < 0) return;
-    this.pickWind(i);
+  /** From the rose: open the guide on that wind (0 = north, clockwise). */
+  showWind(index: number): void {
+    this.pickWind(index);
     this.openPanel('rosa');
   }
 
   private pickWind(i: number): void {
     this.picked = i;
-    this.onPickWind(WINDS[i].name);
+    this.onPickWind(i);
     this.renderRosa();
     this.more.querySelector<HTMLButtonElement>(`[data-wind="${i}"]`)?.focus({ preventScroll: true });
   }
@@ -149,28 +155,30 @@ export class Panels {
   /* ---------- in breve ---------- */
 
   private renderSummary(): void {
-    const { forecast: f, sea, seaStatus, place, unit } = this.input!;
+    const { forecast: f, sea, seaStatus, place, zone, unit } = this.input!;
     // Only a place the sea model knows nothing about is inland for sure; while loading, assume the coast.
-    const coastal = seaStatus !== 'none' || inSardinia(place.lat, place.lon);
+    const coastal = seaStatus !== 'none' || zone === 'sardegna';
     this.summary.textContent = windSummary(f, unit, coastal).join(' ');
     const today = f.current.time.slice(0, 10);
     const rows: { k: string; v: string; open: PanelId; level?: Level }[] = [];
 
     rows.push({ k: 'Mare', v: this.seaShort(sea, seaStatus, today), open: 'mare', level: sea && seaState(sea.now.height).degree >= 4 ? 'attenzione' : 'ok' });
 
-    if (inSardinia(place.lat, place.lon)) {
+    const region = regionAt(place.lat, place.lon);
+    if (region) {
       const now = f.current;
+      const readings = regionExposure(region, now.dir);
       rows.push({
         k: 'Coste',
         v:
           now.speed < EXPOSURE_MIN
             ? 'Vento debole: nessuna costa davvero esposta'
-            : `Più esposte ${segmentNames(sardiniaExposure(now.dir), 'esposta')}; più riparate ${segmentNames(sardiniaExposure(now.dir), 'ridossata')}`,
+            : `Più esposte ${segmentNames(readings, 'esposta')}; più riparate ${segmentNames(readings, 'ridossata')}`,
         open: 'coste',
       });
     }
 
-    const tips = camperTips(f.current, f.ahead, unit, sea?.now ?? null);
+    const tips = camperTips(f.current, f.ahead, unit, sea?.now ?? null, zone);
     const flagged = tips.filter((t) => t.level !== 'ok').sort((a, b) => (a.level === b.level ? 0 : a.level === 'pericolo' ? -1 : 1));
     rows.push({
       k: 'Giornata',
@@ -180,7 +188,7 @@ export class Panels {
     });
 
     const m = maestraleOutlook(f.current, f.ahead);
-    if (m.first && coastal) rows.push({ k: 'Maestrale', v: maestraleStatus(m, f.current, today), open: 'maestrale' });
+    if (m.first && coastal && isMediterranean(zone)) rows.push({ k: 'Maestrale', v: maestraleStatus(m, f.current, today), open: 'maestrale' });
 
     this.facts.innerHTML = rows
       .map(
@@ -207,42 +215,49 @@ export class Panels {
     const when = whenShown(p, this.isNow);
     const light = p.speed < EXPOSURE_MIN;
     const w = windFrom(p.dir);
+    const region = regionAt(place.lat, place.lon);
     const head = light
       ? `<p>${when}: vento debole (${speedLabel(p.speed, this.input!.unit)}). Nessuna costa è davvero esposta al vento: il mare dipende soprattutto dall’onda residua, vedi <button type="button" class="link" data-open="mare">Mare e onde</button>.</p>`
-      : `<p>${when}: <strong>${w.name}</strong> da ${w.direction}, ${speedLabel(p.speed, this.input!.unit)}, raffiche ${speedLabel(p.gust, this.input!.unit)}.</p>`;
+      : `<p>${when}: ${windLine(w)}, ${speedLabel(p.speed, this.input!.unit)}, raffiche ${speedLabel(p.gust, this.input!.unit)}.</p>`;
     const caveat = `<p class="note">Indicazioni orientative, basate solo sulla direzione del vento e sull’orientamento generale della costa: non sono una mappa di sicurezza. Dentro ogni tratto baie, promontori e isole possono essere più riparati o più esposti, e l’app non conosce il riparo reale delle singole spiagge.</p>`;
 
-    if (!inSardinia(place.lat, place.lon)) {
+    const legend = light
+      ? ''
+      : `<ul class="exp-legend">${(['esposta', 'laterale', 'ridossata'] as const)
+          .map((k) => `<li><span class="exp ${k}">${EXPOSURE_COPY[k].label}</span> ${EXPOSURE_COPY[k].hint}.</li>`)
+          .join('')}</ul>`;
+
+    if (!region) {
       this.panel(
         'coste',
         light ? 'Vento debole' : 'Indicazioni generali',
-        `${head}${light ? '' : `<p>${genericExposure(p.dir)}</p>`}
-        <p class="note">La mappa delle coste per tratto è disponibile per la Sardegna. Qui l’app non conosce l’orientamento delle spiagge, quindi non indica zone riparate.</p>${caveat}`,
+        `${head}
+        <div class="dial-wrap">
+          ${exposureDial(light ? null : p.dir)}
+          <p class="note">Non è una mappa: ogni spicchio è una costa che guarda in quella direzione, colorata per come la prende il vento. La freccia va da dove arriva il vento a dove va.</p>
+        </div>
+        ${light ? '' : `<p>${genericExposure(p.dir)}</p>${legend}`}
+        <p class="note">Le mappe delle coste per tratto ci sono per la Sardegna e l’Islanda. Qui l’app non conosce la linea di costa, quindi non indica zone riparate.</p>${caveat}`,
       );
       return;
     }
 
-    const readings = light ? null : sardiniaExposure(p.dir);
-    const here = nearestSegment(place.lat, place.lon);
-    const list = (readings ?? sardiniaExposure(p.dir)).map(({ segment, exposure }) => {
+    const readings = light ? null : regionExposure(region, p.dir);
+    const here = nearestSegment(region, place.lat, place.lon);
+    const list = (readings ?? regionExposure(region, p.dir)).map(({ segment, exposure }) => {
       const tag = light ? '' : `<span class="exp ${exposure}">${EXPOSURE_COPY[exposure].label}</span>`;
       return `<li class="${segment.id === here?.id ? 'here' : ''}">
         <span class="seg-name">${segment.name}${segment.id === here?.id ? ' <small>sei qui</small>' : ''}</span>${tag}
         <span class="seg-places">${segment.places}</span>
       </li>`;
     });
-    const notes = light ? [] : coastNotes(p.dir);
-    const legend = light
-      ? ''
-      : `<ul class="exp-legend">${(['esposta', 'laterale', 'ridossata'] as const)
-          .map((k) => `<li><span class="exp ${k}">${EXPOSURE_COPY[k].label}</span> ${EXPOSURE_COPY[k].hint}.</li>`)
-          .join('')}</ul>`;
+    const notes = light ? [] : region.notes(p.dir);
     this.panel(
       'coste',
       light ? 'Vento debole' : `Esposte: ${segmentNames(readings!, 'esposta')}`,
       `${head}
-      <div class="coast-grid">
-        ${coastMap(readings, light ? null : p.dir, place, here?.id ?? null)}
+      <div class="coast-grid ${region.id}">
+        ${coastMap(region, readings, light ? null : p.dir, place, here?.id ?? null)}
         <ul class="seg-list">${list.join('')}</ul>
       </div>
       ${legend}
@@ -255,8 +270,12 @@ export class Panels {
   /* ---------- mare ---------- */
 
   private renderMare(): void {
-    const { forecast: f, sea, seaStatus } = this.input!;
+    const { forecast: f, sea, seaStatus, zone } = this.input!;
     const today = f.current.time.slice(0, 10);
+    const sneaker =
+      zone === 'islanda'
+        ? '<p>Sulle spiagge della costa sud, come Reynisfjara, arrivano onde improvvise molto più lunghe delle altre anche con mare in apparenza calmo: resta lontano dalla battigia e non dare mai le spalle al mare.</p>'
+        : '';
     if (!sea) {
       const body =
         seaStatus === 'loading'
@@ -267,7 +286,7 @@ export class Panels {
       this.panel(
         'mare',
         seaStatus === 'loading' ? 'Carico…' : seaStatus === 'failed' ? 'Non disponibile' : 'Nessun dato',
-        `${body}<p class="note">Senza dati del mare l’app non stima l’altezza delle onde dal vento: la stessa velocità alza onde molto diverse a seconda di quanto mare ha davanti e da quanto soffia.</p>`,
+        `${body}${sneaker}<p class="note">Senza dati del mare l’app non stima l’altezza delle onde dal vento: la stessa velocità alza onde molto diverse a seconda di quanto mare ha davanti e da quanto soffia.</p>`,
       );
       return;
     }
@@ -286,6 +305,7 @@ export class Panels {
       `<p><strong>${seaHeadline(now)}</strong>, ${seaTrendCopy(trend, today)}.</p>
       <p>${seaOriginCopy(now, f.current)}</p>
       ${period}
+      ${sneaker}
       ${strip}
       <p>${seaDaysCopy(sea, today)}</p>
       ${far}
@@ -331,12 +351,19 @@ export class Panels {
   /* ---------- maestrale ---------- */
 
   private renderMaestrale(): void {
-    const { forecast: f, sea, place, unit } = this.input!;
+    const { forecast: f, sea, place, zone, unit } = this.input!;
+    // A Mediterranean wind: elsewhere a north-westerly is just a north-westerly.
+    const details = this.more.querySelector<HTMLDetailsElement>('#more-maestrale')!;
+    details.hidden = !isMediterranean(zone);
+    if (details.hidden) return;
     const today = f.current.time.slice(0, 10);
     const o = maestraleOutlook(f.current, f.ahead);
     const coasts = sardiniaExposure(WINDS[MAESTRALE].deg);
     const about = `<p>${WINDS[MAESTRALE].about} Spesso arriva dopo il passaggio di una perturbazione e porta aria più fresca e secca. A volte dura più giorni: quanto, lo dicono solo le previsioni.</p>`;
-    const coastCopy = `<p>In Sardegna con il maestrale le coste più esposte sono quelle a ${segmentNames(coasts, 'esposta')}; più riparate dal moto ondoso quelle a ${segmentNames(coasts, 'ridossata')}, dove però il vento arriva da terra e può soffiare a raffiche. <button type="button" class="link" data-open="coste">Coste esposte e ripari</button></p>`;
+    const coastCopy =
+      zone === 'sardegna'
+        ? `<p>In Sardegna con il maestrale le coste più esposte sono quelle a ${segmentNames(coasts, 'esposta')}; più riparate dal moto ondoso quelle a ${segmentNames(coasts, 'ridossata')}, dove però il vento arriva da terra e può soffiare a raffiche. <button type="button" class="link" data-open="coste">Coste esposte e ripari</button></p>`
+        : `<p>${genericExposure(WINDS[MAESTRALE].deg)} <button type="button" class="link" data-open="coste">Coste esposte e ripari</button></p>`;
 
     if (!o.first) {
       this.panel(
@@ -367,7 +394,7 @@ export class Panels {
         ? `<p>Qui il mare con il maestrale arriva a ${mLabel(wave.height)} (${seaState(wave.height).label}) ${whenLabel(wave.time, today)}.</p>`
         : '';
     } else {
-      waves = '<p class="note">Senza dati del mare per questo punto. In genere con maestrale teso o forte il mare si alza soprattutto sulle coste occidentali e settentrionali.</p>';
+      waves = `<p class="note">Senza dati del mare per questo punto. In genere con maestrale teso o forte il mare si alza soprattutto sulle coste rivolte a nord-ovest${zone === 'sardegna' ? ', in Sardegna quelle occidentali e settentrionali' : ''}.</p>`;
     }
 
     this.panel(
@@ -387,8 +414,8 @@ export class Panels {
   /* ---------- camper ---------- */
 
   private renderCamper(): void {
-    const { forecast: f, sea, place, unit } = this.input!;
-    const tips = camperTips(f.current, f.ahead, unit, sea?.now ?? null);
+    const { forecast: f, sea, place, zone, unit } = this.input!;
+    const tips = camperTips(f.current, f.ahead, unit, sea?.now ?? null, zone);
     const level = tips.reduce<Level>((l, t) => worse(l, t.level), 'ok');
     const flagged = tips.filter((t) => t.level !== 'ok');
     const top = flagged.filter((t) => t.level === level).map((t) => t.title.split(' ')[0].toLowerCase());
@@ -399,7 +426,7 @@ export class Panels {
       'camper',
       status,
       `<ul class="tips">${tips.map(item).join('')}</ul>
-      <p class="note">Suggerimenti in base alle previsioni per ${escapeHtml(place.name)} nelle prossime 12 ore. Non sostituiscono gli avvisi ufficiali: segui i bollettini della Protezione Civile e dell’Aeronautica Militare.</p>`,
+      <p class="note">Suggerimenti in base alle previsioni per ${escapeHtml(place.name)} nelle prossime 12 ore. Non sostituiscono gli avvisi ufficiali: segui ${officialSources(zone)}.</p>`,
       level,
     );
   }
@@ -435,32 +462,48 @@ export class Panels {
   /* ---------- rosa dei venti ---------- */
 
   private renderRosa(): void {
+    const { place, zone } = this.input!;
     const p = this.point!;
+    const med = mediterraneanNames();
+    const rose = windRose();
     const calm = p.speed < CALM_BELOW;
     const shown = windFrom(p.dir);
-    const i = this.picked ?? (calm ? MAESTRALE : WINDS.indexOf(shown));
-    const w = WINDS[i];
-    const exposed = segmentNames(sardiniaExposure(w.deg), 'esposta');
+    const i = this.picked ?? (calm ? (med ? MAESTRALE : 0) : rose.indexOf(shown));
+    const w = rose[i];
+    const region = regionAt(place.lat, place.lon);
+    const exposed = region
+      ? `In ${region.name} espone soprattutto le coste a ${segmentNames(regionExposure(region, w.deg), 'esposta')}.`
+      : `Espone soprattutto le coste rivolte a ${w.direction}.`;
+    const about = med
+      ? w.about
+      : zone === 'islanda'
+        ? icelandAbout(w.cardinal)
+        : 'Che aria porta un vento dipende dalla zona: l’app lo descrive solo per il Mediterraneo e l’Islanda.';
+    const intro = med
+      ? '<p>Il nome del vento dice <strong>da dove arriva</strong>, non dove va: il maestrale arriva da nord-ovest e spinge l’aria verso sud-est.'
+      : '<p>Il vento si indica con la direzione <strong>da cui arriva</strong>, non con quella verso cui va: un vento da nord-ovest spinge l’aria verso sud-est. Qui l’app non usa i nomi del Mediterraneo (Maestrale, Scirocco…), che fuori da quel mare non hanno senso.';
     const example = calm
       ? `<p>${whenShown(p, this.isNow)} c’è calma di vento.</p>`
-      : `<p>${whenShown(p, this.isNow)}: <strong>${shown.name}</strong>, arriva da ${shown.direction} (${Math.round(p.dir)}°) e soffia verso ${windTowards(p.dir)}.</p>`;
-    const buttons = WINDS.map(
+      : med
+        ? `<p>${whenShown(p, this.isNow)}: <strong>${shown.name}</strong>, arriva da ${shown.direction} (${Math.round(p.dir)}°) e soffia verso ${windTowards(p.dir)}.</p>`
+        : `<p>${whenShown(p, this.isNow)}: il vento arriva da <strong>${shown.direction}</strong> (${Math.round(p.dir)}°) e soffia verso ${windTowards(p.dir)}.</p>`;
+    const buttons = rose.map(
       (x, j) => `<button type="button" data-wind="${j}" aria-pressed="${j === i}" class="${!calm && x.name === shown.name ? 'now' : ''}">
         ${needleIcon(x.deg, x.warm, 16)}<span>${x.name}</span><small>${x.cardinal}</small>
       </button>`,
     ).join('');
     this.panel(
       'rosa',
-      calm ? 'Calma' : `${shown.name}, da ${shown.direction} verso ${windTowards(p.dir)}`,
-      `<p>Il nome del vento dice <strong>da dove arriva</strong>, non dove va: il maestrale arriva da nord-ovest e spinge l’aria verso sud-est. Sulla rosa la punta colorata della lancetta indica la provenienza; la coda e le scie animate il verso in cui si muove l’aria.</p>
+      calm ? 'Calma' : `${med ? `${shown.name}, d` : 'D'}a ${shown.direction} verso ${windTowards(p.dir)}`,
+      `${intro} Sulla rosa la punta colorata della lancetta indica la provenienza; la coda e le scie animate il verso in cui si muove l’aria.</p>
       ${example}
-      <div class="wind-picker" role="group" aria-label="Gli otto venti">${buttons}</div>
+      <div class="wind-picker" role="group" aria-label="${med ? 'Gli otto venti' : 'Le otto direzioni'}">${buttons}</div>
       <div class="wind-card">
-        <p class="wc-name">${w.name} <small>${w.cardinal}, ${w.deg}°: da ${w.direction} verso ${windTowards(w.deg)}</small></p>
-        <p>${w.about}</p>
-        <p class="note">In Sardegna espone soprattutto le coste a ${exposed}.</p>
+        <p class="wc-name">${med ? w.name : `Da ${w.direction}`} <small>${w.cardinal}, ${w.deg}°: da ${w.direction} verso ${windTowards(w.deg)}</small></p>
+        <p>${about}</p>
+        <p class="note">${exposed}</p>
       </div>
-      <p class="note">Tocca un nome sulla rosa o qui sopra per leggere il suo vento.</p>`,
+      <p class="note">Tocca un nome sulla rosa o qui sopra per leggere ${med ? 'il suo vento' : 'quella direzione'}.</p>`,
     );
   }
 }

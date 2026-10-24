@@ -20,7 +20,18 @@ import { Rose } from './rose';
 import { Search } from './search';
 import { load, save } from './storage';
 import { dropIcon } from './ui';
-import { beaufort, CALM_BELOW, convertSpeed, UNIT_LABEL, windFrom, type SpeedUnit } from './wind';
+import {
+  beaufort,
+  CALM_BELOW,
+  convertSpeed,
+  mediterraneanNames,
+  UNIT_LABEL,
+  useWindNaming,
+  windFrom,
+  windTowards,
+  type SpeedUnit,
+} from './wind';
+import { isMediterranean, zoneOf } from './zone';
 
 registerSW({ immediate: true });
 
@@ -68,8 +79,8 @@ let requestId = 0;
 /** The sea request of this place is still running. */
 let seaPending = false;
 
-const rose = new Rose($('#rose'), (name) => panels.showWind(name));
-const panels = new Panels($('#summary'), $('#facts'), $('#more'), (name) => rose.pick(name));
+const rose = new Rose($('#rose'), (i) => panels.showWind(i));
+const panels = new Panels($('#summary'), $('#facts'), $('#more'), (i) => rose.pick(i));
 const chart = new HourChart($('#chart'), (i) => selectHour(i));
 
 function selectedIndex(): number | null {
@@ -129,11 +140,17 @@ function renderReading(): void {
       ? `<p class="when">Adesso</p>`
       : `<p class="when">Alle ${hourLabel(p.time)}:00 <button type="button" class="link" id="back-now">Torna ad adesso</button></p>`;
 
+  // Outside the Mediterranean the wind is named by where it comes from, and the line below says where it goes.
+  const med = mediterraneanNames();
+  const temp =
+    p.temp == null
+      ? ''
+      : `<p class="desc soft">${Math.round(p.temp)}°${p.feels != null && Math.abs(p.feels - p.temp) >= 2 ? `, percepiti ${Math.round(p.feels)}°` : ''}</p>`;
   els.reading.innerHTML = `${when}
-    <h1 class="wind-name">${calm ? 'Calma' : w.name}</h1>
+    <h1 class="wind-name">${calm ? 'Calma' : med ? w.name : `Da ${w.direction}`}</h1>
     <p class="speed"><span class="num">${convertSpeed(p.speed, unit)}</span><span class="u">${UNIT_LABEL[unit]}</span></p>
-    <p class="desc">${calm ? 'Aria ferma' : `Da ${w.direction}`}, raffiche fino a ${convertSpeed(p.gust, unit)} ${UNIT_LABEL[unit]}</p>
-    <p class="desc soft">Forza ${bf.force}, ${bf.label.toLowerCase()}</p>
+    <p class="desc">${calm ? 'Aria ferma' : med ? `Da ${w.direction}` : `Verso ${windTowards(p.dir)}`}, raffiche fino a ${convertSpeed(p.gust, unit)} ${UNIT_LABEL[unit]}</p>
+    <p class="desc soft">Forza ${bf.force}, ${bf.label.toLowerCase()}</p>${temp}
     <p class="desc soft rain-line${rain ? ' wet' : ''}">${dropIcon(13)}${rainLabel(p)}</p>${
       spell ? `<p class="desc soft">${rainSpellCopy(spell)}</p>` : ''
     }${
@@ -145,7 +162,7 @@ function renderReading(): void {
 
   // On phones the chart sits below the rose: repeat the reading right above it.
   const label = now ? 'Adesso' : `Alle ${hourLabel(p.time)}`;
-  els.readout.innerHTML = `${label}: <strong>${calm ? 'calma' : w.name}</strong>, ${convertSpeed(p.speed, unit)} ${UNIT_LABEL[unit]}, raffiche ${convertSpeed(p.gust, unit)}${rain ? `, pioggia ${rain}` : ''}${
+  els.readout.innerHTML = `${label}: <strong>${calm ? 'calma' : med ? w.name : `da ${w.direction}`}</strong>, ${convertSpeed(p.speed, unit)} ${UNIT_LABEL[unit]}, raffiche ${convertSpeed(p.gust, unit)}${rain ? `, pioggia ${rain}` : ''}${
     now ? '' : ' <button type="button" class="link" data-now>adesso</button>'
   }`;
   els.readout.querySelector('[data-now]')?.addEventListener('click', () => selectHour(null));
@@ -176,6 +193,10 @@ function renderAll(): void {
   if (!shown) return;
   const localNow = localIso(new Date(), shown.data.timezone);
   renderedHour = localNow.slice(0, 13);
+  // Name winds the way the place does, before anything is drawn. A southerly reads as warm only in
+  // the northern mid-latitudes.
+  const zone = zoneOf(shown.place.lat, shown.place.lon);
+  useWindNaming(isMediterranean(zone) ? 'mediterraneo' : 'direzioni', shown.place.lat > 23.5);
   forecast = buildForecast(shown.data, localNow);
   if (selectedIndex() === null) selectedTime = null;
   document.body.classList.remove('empty', 'loading');
@@ -194,7 +215,8 @@ function renderPanels(localNow?: string): void {
   if (!shown || !forecast) return;
   const sea = buildSea(shown.marine, shown.place, localNow ?? localIso(new Date(), shown.data.timezone));
   const seaStatus: SeaStatus = sea ? 'ok' : shown.marine ? 'none' : seaPending ? 'loading' : 'failed';
-  panels.render({ forecast, sea, seaStatus, place: shown.place, unit }, displayedPoint()!, selectedIndex() === null);
+  const zone = zoneOf(shown.place.lat, shown.place.lon);
+  panels.render({ forecast, sea, seaStatus, place: shown.place, zone, unit }, displayedPoint()!, selectedIndex() === null);
 }
 
 function renderMessage(title: string, body: string, actions: { label: string; run: () => void }[]): void {

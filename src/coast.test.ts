@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
-  coastNotes,
   distanceToSegment,
   exposure,
   genericExposure,
-  inSardinia,
+  ICELAND,
+  ICELAND_REGION,
   nearestSegment,
+  regionAt,
+  regionExposure,
   SARDINIA,
+  SARDINIA_REGION,
   sardiniaExposure,
   segmentNames,
 } from './coast';
 import { WINDS } from './wind';
+import { inSardinia } from './zone';
 
 const exposedTo = (name: string) => {
   const w = WINDS.find((x) => x.name === name)!;
@@ -66,9 +70,12 @@ describe('Sardinian coasts by wind', () => {
 });
 
 describe('outline', () => {
-  it('joins each stretch to the next, closing the island', () => {
-    SARDINIA.forEach((s, i) => {
-      const next = SARDINIA[(i + 1) % SARDINIA.length];
+  it.each([
+    ['Sardegna', SARDINIA],
+    ['Islanda', ICELAND],
+  ])('joins each stretch of %s to the next, closing the island', (_, segments) => {
+    segments.forEach((s, i) => {
+      const next = segments[(i + 1) % segments.length];
       expect(s.points.at(-1)).toEqual(next.points[0]);
     });
   });
@@ -85,12 +92,12 @@ describe('where the place is', () => {
     [40.28, 9.63, 'est'], // Cala Gonone
     [39.14, 8.31, 'sudovest'], // Carloforte
   ])('%f, %f is on the %s coast', (lat, lon, id) => {
-    expect(nearestSegment(lat, lon)?.id).toBe(id);
+    expect(nearestSegment(SARDINIA_REGION, lat, lon)?.id).toBe(id);
   });
 
   it('is inland in Nuoro and nowhere outside Sardinia', () => {
-    expect(nearestSegment(40.32, 9.33)).toBeNull();
-    expect(nearestSegment(45.46, 9.19)).toBeNull();
+    expect(nearestSegment(SARDINIA_REGION, 40.32, 9.33)).toBeNull();
+    expect(nearestSegment(SARDINIA_REGION, 45.46, 9.19)).toBeNull();
     expect(inSardinia(41.39, 9.16)).toBe(false); // Bonifacio, Corsica
   });
 
@@ -100,10 +107,52 @@ describe('where the place is', () => {
   });
 });
 
+describe('Iceland', () => {
+  it('is found by coordinates, Sardinia too, and nothing else', () => {
+    expect(regionAt(64.15, -21.94)).toBe(ICELAND_REGION);
+    expect(regionAt(40.92, 9.5)).toBe(SARDINIA_REGION);
+    expect(regionAt(44.41, 8.93)).toBeNull(); // Genova
+  });
+
+  it.each([
+    [64.15, -21.94, 'faxafloi'], // Reykjavík
+    [63.42, -19.01, 'sud'], // Vík
+    [65.68, -18.09, 'nord'], // Akureyri
+    [64.25, -15.21, 'sudest'], // Höfn
+    [66.07, -23.13, 'vestfirdir'], // Ísafjörður
+    [64.89, -23.71, 'snaefellsnes'], // Ólafsvík
+  ])('%f, %f is on the %s coast', (lat, lon, id) => {
+    expect(nearestSegment(ICELAND_REGION, lat, lon)?.id).toBe(id);
+  });
+
+  it('is inland in the highlands', () => {
+    expect(nearestSegment(ICELAND_REGION, 64.85, -18.0)).toBeNull();
+  });
+
+  it.each([
+    [0, ['nord', 'nordest', 'vestfirdir']],
+    [180, ['sud', 'sudest']],
+    [270, ['faxafloi', 'snaefellsnes', 'vestfirdir']],
+    [90, ['est', 'nordest', 'sudest']],
+  ])('wind from %i° exposes %j', (deg, ids) => {
+    const exposed = regionExposure(ICELAND_REGION, deg)
+      .filter((r) => r.exposure === 'esposta')
+      .map((r) => r.segment.id);
+    expect(exposed.sort()).toEqual([...ids].sort());
+  });
+
+  it('warns about fjords, mountain gusts and sand', () => {
+    const notes = ICELAND_REGION.notes(0).join(' ');
+    expect(notes).toContain('fiordi');
+    expect(notes).toContain('umferdin.is');
+    expect(notes).toContain('sabbia');
+  });
+});
+
 describe('notes', () => {
   it('mentions the Bocche di Bonifacio only for winds it channels', () => {
-    expect(coastNotes(315).join(' ')).toContain('Bocche di Bonifacio');
-    expect(coastNotes(135)).toEqual([]);
+    expect(SARDINIA_REGION.notes(315).join(' ')).toContain('Bocche di Bonifacio');
+    expect(SARDINIA_REGION.notes(135)).toEqual([]);
   });
 
   it('explains exposure anywhere without inventing places', () => {

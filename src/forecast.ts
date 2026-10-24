@@ -10,6 +10,9 @@ export interface OpenMeteoResponse {
     wind_speed_10m: number;
     wind_gusts_10m: number;
     wind_direction_10m: number;
+    /** °C. Temperature fields are missing from forecasts cached before they were added. */
+    temperature_2m?: number;
+    apparent_temperature?: number;
   };
   hourly: {
     time: string[];
@@ -20,6 +23,9 @@ export interface OpenMeteoResponse {
     precipitation?: (number | null)[];
     /** % chance of at least 0.1 mm in the hour ending at `time`. */
     precipitation_probability?: (number | null)[];
+    temperature_2m?: (number | null)[];
+    /** Felt temperature: wind chill, humidity and sun. */
+    apparent_temperature?: (number | null)[];
   };
   daily: {
     time: string[];
@@ -40,6 +46,15 @@ export interface HourPoint {
   rain: number;
   /** % chance of rain in the same span. */
   rainChance: number;
+  /** °C, when the forecast has it. */
+  temp?: number;
+  /** Felt °C, when the forecast has it. */
+  feels?: number;
+}
+
+/** Temperature fields only when present, so points without them stay as they were. */
+function temps(temp: number | null | undefined, feels: number | null | undefined): Pick<HourPoint, 'temp' | 'feels'> {
+  return { ...(temp != null && { temp }), ...(feels != null && { feels }) };
 }
 
 export interface DaySummary {
@@ -79,6 +94,7 @@ export function hourPoints(h: OpenMeteoResponse['hourly']): HourPoint[] {
     dir: h.wind_direction_10m[i],
     rain: h.precipitation?.[i + 1] ?? 0,
     rainChance: h.precipitation_probability?.[i + 1] ?? 0,
+    ...temps(h.temperature_2m?.[i], h.apparent_temperature?.[i]),
   }));
 }
 
@@ -115,6 +131,7 @@ export function buildForecast(r: OpenMeteoResponse, now?: string): Forecast {
     dir: r.current.wind_direction_10m,
     rain: liveRain?.rain ?? 0,
     rainChance: liveRain?.rainChance ?? 0,
+    ...temps(r.current.temperature_2m, r.current.apparent_temperature),
   };
 
   const days: DaySummary[] = r.daily.time.map((date, i) => ({

@@ -87,11 +87,47 @@ export const CALM_BELOW = 2; // km/h
 
 export const normalizeDeg = (deg: number): number => ((deg % 360) + 360) % 360;
 
+/**
+ * The Mediterranean names mean nothing in Iceland or Patagonia: there the app says where the wind
+ * comes from instead ("Nord-ovest"). One setting for the whole page, chosen from the place.
+ */
+export type WindNaming = 'mediterraneo' | 'direzioni';
+
+let naming: WindNaming = 'mediterraneo';
+let directions: readonly Wind[] = directionRose(true);
+
+function directionRose(warmSouth: boolean): readonly Wind[] {
+  return WINDS.map((w) => ({
+    ...w,
+    name: w.direction.charAt(0).toUpperCase() + w.direction.slice(1),
+    feminine: false,
+    warm: warmSouth && w.warm,
+    about: '',
+  }));
+}
+
+/**
+ * @param warmSouth Colour southern winds as warm: true in the northern mid-latitudes, false where
+ * the app cannot tell (south of the equator a southerly is cold).
+ */
+export function useWindNaming(n: WindNaming, warmSouth = true): void {
+  naming = n;
+  directions = directionRose(warmSouth);
+}
+
+export const mediterraneanNames = (): boolean => naming === 'mediterraneo';
+
+/** The eight winds as the page names them now. */
+export const windRose = (): readonly Wind[] => (naming === 'mediterraneo' ? WINDS : directions);
+
 export function windFrom(deg: number): Wind {
   // Half-way points round towards the previous sector (22.5° is still Tramontana).
   const sector = Math.ceil(normalizeDeg(deg) / 45 - 0.5) % 8;
-  return WINDS[sector];
+  return windRose()[sector];
 }
+
+/** After "da" in a sentence: "da Maestrale" in the Mediterranean, "da nord-ovest" elsewhere. */
+export const windInSentence = (w: Wind): string => (naming === 'mediterraneo' ? w.name : w.direction);
 
 /** Where the air goes: the opposite point, spelled out ("sud-est" for a wind from 315°). */
 export const windTowards = (deg: number): string => windFrom(deg + 180).direction;

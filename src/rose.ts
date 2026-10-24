@@ -1,4 +1,4 @@
-import { WINDS, normalizeDeg, windFrom } from './wind';
+import { WINDS, normalizeDeg, windFrom, windRose } from './wind';
 import { reducedMotion } from './ui';
 
 // Geometry in viewBox units (-215..215).
@@ -73,7 +73,7 @@ function nameArcs(): string {
 function names(): string {
   return WINDS.map(
     (w, i) =>
-      `<text class="rose-name" style="--i:${i}" data-wind="${w.name}"><textPath href="#arc-${i}" startOffset="50%" text-anchor="middle">${w.name}</textPath></text>`,
+      `<text class="rose-name" style="--i:${i}" data-i="${i}"><textPath href="#arc-${i}" startOffset="50%" text-anchor="middle">${w.name}</textPath></text>`,
   ).join('');
 }
 
@@ -124,10 +124,10 @@ export class Rose {
   private raf = 0;
   private rgb = '143,227,200';
 
-  /** @param onName Called with the wind name tapped on the dial. */
+  /** @param onName Called with the index (0 = north, clockwise) of the wind tapped on the dial. */
   constructor(
     private readonly root: HTMLElement,
-    onName?: (name: string) => void,
+    onName?: (index: number) => void,
   ) {
     root.classList.add('rose', 'intro');
     root.innerHTML = `
@@ -166,7 +166,7 @@ export class Rose {
 
     if (onName) {
       root.classList.add('pickable');
-      for (const el of this.nameEls) el.addEventListener('click', () => onName(el.dataset.wind!));
+      for (const el of this.nameEls) el.addEventListener('click', () => onName(Number(el.dataset.i)));
     }
 
     new ResizeObserver(() => this.resize()).observe(root);
@@ -183,8 +183,14 @@ export class Rose {
     this.rgb = getComputedStyle(this.root).getPropertyValue('--accent-rgb').trim() || this.rgb;
     const calm = view.dir === null;
     this.root.classList.toggle('calm', calm);
-    const active = calm ? null : windFrom(view.dir!).name;
-    for (const el of this.nameEls) el.classList.toggle('on', el.dataset.wind === active);
+    // Names follow the page's naming: Mediterranean winds or plain directions.
+    const rose = windRose();
+    this.nameEls.forEach((el, i) => {
+      const tp = el.firstElementChild!;
+      if (tp.textContent !== rose[i].name) tp.textContent = rose[i].name;
+    });
+    const active = calm ? -1 : rose.indexOf(windFrom(view.dir!));
+    this.nameEls.forEach((el, i) => el.classList.toggle('on', i === active));
     this.sector.setAttribute('d', view.spread && !calm ? sectorPath(view.spread.mean, view.spread.half) : '');
     this.rainArc.innerHTML = rainArc(view.rain);
     this.rainArc.classList.toggle('maybe', view.rain?.wet === false);
@@ -196,8 +202,8 @@ export class Rose {
   }
 
   /** Marks the wind open in the guide; null clears it. */
-  pick(name: string | null): void {
-    for (const el of this.nameEls) el.classList.toggle('picked', el.dataset.wind === name);
+  pick(index: number | null): void {
+    this.nameEls.forEach((el, i) => el.classList.toggle('picked', i === index));
   }
 
   private resize(): void {

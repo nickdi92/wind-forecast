@@ -1057,6 +1057,65 @@ body.loading .wind-name.small {
   display: block;
 }
 
+/* Iceland is wider than tall: map on top, list below. */
+.coast-grid.islanda {
+  grid-template-columns: 1fr;
+}
+
+.coast-grid.islanda .coast-map {
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.dial-wrap {
+  display: grid;
+  grid-template-columns: minmax(120px, 40%) 1fr;
+  gap: 14px;
+  align-items: center;
+  margin: 4px 0 12px;
+}
+
+.coast-dial {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.dial-sector {
+  stroke: var(--abyss);
+  stroke-width: 2;
+}
+
+.dial-sector.esposta {
+  fill: var(--danger);
+}
+
+.dial-sector.laterale {
+  fill: var(--alert);
+}
+
+.dial-sector.ridossata {
+  fill: var(--sea);
+}
+
+.dial-sector.neutral {
+  fill: rgba(230, 239, 233, 0.12);
+}
+
+.dial-label {
+  fill: var(--ink-3);
+  font: 11px var(--sans);
+  text-anchor: middle;
+}
+
+.dial-wind {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .cm-land {
   fill: rgba(230, 239, 233, 0.06);
   stroke: none;

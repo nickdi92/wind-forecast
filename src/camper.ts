@@ -1,13 +1,14 @@
 import { GUST_DANGER, GUST_WARN } from './alerts';
 import type { HourPoint } from './forecast';
 import { OUTLOOK_HOURS } from './insight';
-import { seaState, type SeaPoint } from './marine';
+import { mLabel, seaState, type SeaPoint } from './marine';
 import { speedLabel, windFrom, type SpeedUnit } from './wind';
+import type { Zone } from './zone';
 
 export type Level = 'ok' | 'attenzione' | 'pericolo';
 
 export interface Tip {
-  id: 'guida' | 'sosta' | 'alberi' | 'spiaggia' | 'escursioni' | 'foto';
+  id: 'guida' | 'portiere' | 'sosta' | 'alberi' | 'spiaggia' | 'escursioni' | 'freddo' | 'foto';
   title: string;
   level: Level;
   /** A few words for the summary. */
@@ -29,8 +30,10 @@ export const worse = (a: Level, b: Level): Level => (RANK[b] > RANK[a] ? b : a);
  * Advice for life on the road, scaled to the wind of the next hours: the peak gust and the peak
  * mean wind, where the strongest gust comes from, and the sea when there is data for it.
  * @param hours Hourly forecast starting with the current hour.
+ * @param zone Iceland gets its own advice: doors, sand, sneaker waves, road gust measurements.
  */
-export function camperTips(now: HourPoint, hours: HourPoint[], unit: SpeedUnit, sea: SeaPoint | null = null): Tip[] {
+export function camperTips(now: HourPoint, hours: HourPoint[], unit: SpeedUnit, sea: SeaPoint | null = null, zone: Zone = 'mediterraneo'): Tip[] {
+  const iceland = zone === 'islanda';
   const span = [now, ...hours.slice(1, OUTLOOK_HOURS + 1)];
   const top = span.reduce((a, b) => (b.gust > a.gust ? b : a));
   const G = top.gust;
@@ -48,6 +51,25 @@ export function camperTips(now: HourPoint, hours: HourPoint[], unit: SpeedUnit, 
           ? { id: 'guida', title: 'Guida', level: 'attenzione', short: 'attenzione alle raffiche laterali', text: `Raffiche laterali fino a ${g}: rallenta su viadotti, ponti, crinali e all’uscita delle gallerie, tieni il volante con due mani e attenzione quando superi o vieni superato da mezzi pesanti.` }
           : { id: 'guida', title: 'Guida', level: 'ok', short: 'nessun problema', text: `Raffiche fino a ${g}: nessun problema di vento laterale per la guida.` },
   );
+
+  if (iceland) {
+    const guida = tips[0];
+    tips[0] = {
+      ...guida,
+      text: `${guida.text} Ai piedi delle montagne e sui passi le raffiche reali possono superare di molto quelle previste: prima di partire controlla le raffiche misurate lungo il percorso e le strade chiuse su umferdin.is.${
+        G >= 50 ? ' Con vento così forte sulle pianure di sabbia della costa sud sabbia e ghiaia possono rovinare vernice e vetri.' : ''
+      }`,
+    };
+    if (G >= 30) {
+      tips.push({
+        id: 'portiere',
+        title: 'Portiere',
+        level: G >= 50 ? 'pericolo' : 'attenzione',
+        short: 'tieni forte le portiere',
+        text: 'Apri le portiere tenendole con due mani, meglio dopo aver parcheggiato con il muso controvento: il vento le spalanca e le piega, ed è un danno che le assicurazioni del noleggio spesso non coprono.',
+      });
+    }
+  }
 
   tips.push(
     G >= GUST_DANGER
@@ -80,7 +102,17 @@ export function camperTips(now: HourPoint, hours: HourPoint[], unit: SpeedUnit, 
     if (s.degree >= 4) beach = { ...beach, level: 'pericolo', short: `mare ${s.label}`, text: `${beach.text} Mare ${s.label}: bagno sconsigliato sulle spiagge esposte, attenzione alle correnti di ritorno.` };
     else if (s.degree === 3) beach = { ...beach, level: worse(beach.level, 'attenzione'), text: `${beach.text} Mare mosso: bagno con prudenza, dove si tocca e meglio con bagnino.` };
   }
-  if (M >= 15) beach = { ...beach, text: `${beach.text} Con vento da terra niente gonfiabili, materassini e SUP: il vento li porta al largo.` };
+  if (iceland) {
+    // No umbrellas up here: the danger at the beach is the sea itself.
+    beach = {
+      ...beach,
+      level: worse(beach.level, 'attenzione'),
+      short: beach.level === 'pericolo' ? beach.short : 'attenzione alle onde',
+      text: `Sulle spiagge della costa sud, come Reynisfjara, arrivano onde improvvise molto più lunghe delle altre anche con mare in apparenza calmo: resta lontano dalla battigia e non dare mai le spalle al mare.${
+        G >= 35 || M >= 20 ? ' Con questo vento sabbia nera sollevata sulle spiagge aperte.' : ''
+      }${sea && seaState(sea.height).degree >= 3 ? ` Mare ${seaState(sea.height).label}, onde di ${mLabel(sea.height)}.` : ''}`,
+    };
+  } else if (M >= 15) beach = { ...beach, text: `${beach.text} Con vento da terra niente gonfiabili, materassini e SUP: il vento li porta al largo.` };
   tips.push(beach);
 
   tips.push(
@@ -90,6 +122,17 @@ export function camperTips(now: HourPoint, hours: HourPoint[], unit: SpeedUnit, 
         ? { id: 'escursioni', title: 'Passeggiate e trekking', level: 'attenzione', short: 'evita crinali e scogliere', text: 'Su crinali, creste e falesie le raffiche sbilanciano: scegli percorsi bassi o di fondovalle e stai lontano dal bordo delle scogliere.' }
         : { id: 'escursioni', title: 'Passeggiate e trekking', level: 'ok', short: 'via libera', text: M >= 20 ? 'Vento che non ostacola le escursioni; in cresta si farà sentire.' : 'Vento che non ostacola le escursioni.' },
   );
+
+  const felt = Math.min(...span.map((h) => h.feels ?? Infinity));
+  if (felt <= 0) {
+    tips.push({
+      id: 'freddo',
+      title: 'Freddo',
+      level: felt <= -10 ? 'pericolo' : 'attenzione',
+      short: `percepiti ${Math.round(felt)}°`,
+      text: `Con il vento la temperatura percepita scende fino a ${Math.round(felt)}°: vestiti a strati con uno strato antivento, proteggi mani, orecchie e viso${felt <= -10 ? ' e limita il tempo all’aperto' : ''}.`,
+    });
+  }
 
   const photo: string[] = [];
   photo.push(

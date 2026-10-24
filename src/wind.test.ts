@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   angleBetween,
   beaufort,
@@ -9,8 +9,12 @@ import {
   convertSpeed,
   directionSpread,
   intensityWord,
+  mediterraneanNames,
   speedLabel,
+  useWindNaming,
   windFrom,
+  windInSentence,
+  windRose,
   windTowards,
 } from './wind';
 
@@ -188,5 +192,32 @@ describe('speedLabel', () => {
   it('converts and adds the unit', () => {
     expect(speedLabel(37.04, 'kn')).toBe('20 nodi');
     expect(speedLabel(36, 'ms')).toBe('10 m/s');
+  });
+});
+
+describe('useWindNaming', () => {
+  afterEach(() => useWindNaming('mediterraneo'));
+
+  it('uses plain directions away from the Mediterranean', () => {
+    useWindNaming('direzioni');
+    expect(mediterraneanNames()).toBe(false);
+    expect(windFrom(315)).toMatchObject({ name: 'Nord-ovest', direction: 'nord-ovest', cardinal: 'NO' });
+    expect(windFrom(0).feminine).toBe(false);
+    expect(windRose().map((w) => w.name)).toEqual(['Nord', 'Nord-est', 'Est', 'Sud-est', 'Sud', 'Sud-ovest', 'Ovest', 'Nord-ovest']);
+    expect(windInSentence(windFrom(135))).toBe('sud-est');
+  });
+
+  it('keeps southerlies warm only where asked', () => {
+    useWindNaming('direzioni', true);
+    expect(windFrom(180).warm).toBe(true);
+    useWindNaming('direzioni', false);
+    expect(windFrom(180).warm).toBe(false);
+  });
+
+  it('goes back to the Mediterranean names', () => {
+    useWindNaming('direzioni');
+    useWindNaming('mediterraneo');
+    expect(windFrom(315).name).toBe('Maestrale');
+    expect(windInSentence(windFrom(135))).toBe('Scirocco');
   });
 });

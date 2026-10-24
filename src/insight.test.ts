@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { DaySummary, Forecast, HourPoint } from './forecast';
 import { daysSentence, gustSentence, headline, windShift, windSummary, windTrend } from './insight';
+import { useWindNaming } from './wind';
 
 const TODAY = '2026-10-24'; // a Saturday
 
@@ -196,5 +197,27 @@ describe('summary details', () => {
   it('does not report a light day getting lighter', () => {
     const f = forecast(hours(flat(13, 16)), [day(TODAY, 16, 270), day('2026-10-25', 11, 135), day('2026-10-26', 4, 225)]);
     expect(daysSentence(f, 'kmh')).toBe('Domani vento in calo, debole tutto il giorno (massimo 11 km/h).');
+  });
+});
+
+describe('away from the Mediterranean', () => {
+  afterEach(() => useWindNaming('mediterraneo'));
+
+  it('speaks of directions instead of Mediterranean names', () => {
+    useWindNaming('direzioni');
+    const h = hours([[24], [26], [29], [32], [36], [38], [33], [30], [29], [28], [27], [27], [27]]);
+    expect(headline(h[0], h, TODAY, 'kmh')).toBe('Vento moderato da nord-ovest, in rinforzo nel pomeriggio fino a 38 km/h.');
+    const f = forecast(hours([[24], [28], [30], ...flat(10, 26)]), [
+      day(TODAY, 30, 315),
+      day('2026-10-25', 48, 315),
+      day('2026-10-26', 20, 135),
+    ]);
+    expect(daysSentence(f, 'kmh')).toBe('Domani vento in rinforzo: forte da nord-ovest fino a 48 km/h. Lunedì vento da sud-est in calo, fino a 20 km/h.');
+  });
+
+  it('says where a turning wind comes from', () => {
+    useWindNaming('direzioni');
+    const f = forecast(hours([[20], [20], [18], [16], ...flat(9, 15, 22, 225)]), [day(TODAY, 20, 315), day('2026-10-25', 18, 225)]);
+    expect(windSummary(f, 'kmh')).toContain('Nel pomeriggio gira da sud-ovest.');
   });
 });

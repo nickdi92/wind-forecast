@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { HourPoint } from './forecast';
 import { rainLabel, rainShort, rainSpell, rainSpellCopy, type RainSpell } from './rain';
+import { useWindNaming } from './wind';
 
 const DRY: [number, number] = [0, 0];
 const WET: [number, number] = [1, 80];
@@ -119,6 +120,15 @@ describe('rainSpellCopy', () => {
 
   it('names the winds bringing the rain and the side to close', () => {
     expect(rainSpellCopy(spell)).toBe('Pioggia da Scirocco e Ostro dalle 15 alle 17: chiudi gli oblò sul lato sud-est');
+  });
+
+  it('uses directions away from the Mediterranean', () => {
+    useWindNaming('direzioni');
+    try {
+      expect(rainSpellCopy(spell)).toBe('Pioggia da sud-est e sud dalle 15 alle 17: chiudi gli oblò sul lato sud-est');
+    } finally {
+      useWindNaming('mediterraneo');
+    }
   });
 
   it('names the wind of the mean direction when the arc holds no named point', () => {
