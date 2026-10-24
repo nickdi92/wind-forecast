@@ -5,10 +5,18 @@ PWA installabile che mostra il vento dove sei: che vento è (maestrale, scirocco
 ## Cosa fa
 
 - **Rosa dei venti** con gli 8 venti del Mediterraneo. La lancetta punta da dove arriva il vento, il ventaglio mostra quanto girerà nelle prossime 6 ore, le scie animate scorrono nella direzione e alla velocità reali. Se nelle prossime 24 ore piove, un arco azzurro sull'anello mostra da dove arriva la pioggia, con il lato da chiudere.
+- **In breve**: riepilogo scritto dai dati delle previsioni (che vento è, se rinforza o cala e quando, se gira, cosa comportano le raffiche, come cambia domani e nei giorni dopo), più tre righe a colpo d'occhio su mare, coste e giornata.
 - **Prossime 24 ore**: barre con media e raffiche. Trascinando sul grafico la rosa mostra l'ora scelta.
 - **Prossimi giorni**: vento dominante, massimo e raffica massima, con il dettaglio ogni 3 ore.
 - **Pioggia**: se piove adesso e quanto (mm), o con che probabilità, sotto il vento. Nel grafico delle 24 ore una barretta azzurra per ora, nei giorni la probabilità massima e il totale, nel dettaglio la pioggia di ogni 3 ore.
 - **Avvisi raffiche**: da 40 km/h attenzione, da 60 km/h pericolo, con consigli per il camper.
+- **Approfondimenti** (pannelli espandibili sotto le previsioni):
+  - *Coste esposte e ripari*: in Sardegna una mappa schematica con 8 tratti di costa colorati per esposizione (esposta, laterale, più riparata) secondo la direzione del vento; altrove una regola generale. Segue l'ora scelta sul grafico.
+  - *Mare e onde*: altezza significativa, direzione, periodo, tendenza a 24 ore e massimi dei prossimi 3 giorni, con la distinzione tra mare vivo (vento locale) e mare residuo (onda lunga). Scala Douglas.
+  - *Maestrale*: ore, media e raffiche nelle finestre 0–24, 24–48 e 48–72 ore, tendenza, quando si attenua secondo le previsioni (mai oltre l'orizzonte), onde e coste sarde esposte.
+  - *Camper e attività all'aperto*: guida con raffiche laterali, piazzola, alberi e oggetti, spiaggia, trekking, foto e drone, proporzionati alle prossime 12 ore.
+  - *Scala Beaufort*: forza della media con fascia ufficiale WMO nell'unità scelta, effetti a terra e in mare, raffiche distinte dalla media.
+  - *Rosa dei venti*: provenienza contro direzione di movimento, gli 8 venti con carattere e coste sarde esposte. Toccando un nome sulla rosa si apre qui.
 - **Ricerca** di un altro posto, con i posti cercati di recente.
 - **Unità**: km/h, nodi o m/s (tocca l'unità in alto).
 - **Offline**: mostra gli ultimi dati scaricati, riallineati all'ora attuale.
@@ -19,7 +27,7 @@ PWA installabile che mostra il vento dove sei: che vento è (maestrale, scirocco
 ```bash
 npm install
 npm run dev      # server locale
-npm test         # test della logica (venti, Beaufort, avvisi, previsioni, pioggia)
+npm test         # test della logica (venti, Beaufort, avvisi, previsioni, pioggia, riepiloghi, mare, coste, maestrale, camper)
 npm run build    # build di produzione in dist/
 npm run icons    # rigenera le icone PWA da public/favicon.svg
 ```
@@ -61,9 +69,11 @@ Ogni push su `main` esegue test e build, poi pubblica su GitHub Pages tramite `.
 ## Dati e condizioni d'uso
 
 - Previsioni: [Open-Meteo](https://open-meteo.com/), dati CC BY 4.0. L'API gratuita è solo per uso **non commerciale** (niente pubblicità o abbonamenti); i limiti valgono per IP, quindi ogni utente usa la propria quota.
+- Onde: [Open-Meteo Marine](https://open-meteo.com/en/docs/marine-weather-api), stesse condizioni, nessuna chiave. Modelli d'onda di DWD, ECMWF, Météo-France, NOAA e Copernicus Marine, da citare. Risponde con la cella di mare più vicina (maglie di alcuni km: l'app mostra la distanza) e con valori nulli lontano dal mare. Accuratezza limitata sotto costa, non adatto alla navigazione. Se la richiesta fallisce il vento resta visibile e il pannello lo dice; l'altezza delle onde non viene mai stimata dal vento.
+- Riepiloghi, esposizione delle coste e consigli sono interpretazioni calcolate dall'app sui dati grezzi, che restano salvati separati. La mappa delle coste è una prima versione basata solo sull'orientamento generale di 8 tratti: non conosce il riparo reale delle singole spiagge.
 - Ricerca posti: Open-Meteo Geocoding, dati GeoNames (CC BY 4.0).
 - Nome del posto: BigDataCloud reverse geocoding client. Va chiamato solo dal browser e solo con la posizione GPS del dispositivo, mai con coordinate salvate o condivise.
 
 ## Privacy
 
-Nessun backend, account, cookie o statistica. La posizione va a Open-Meteo e BigDataCloud, le ricerche a Open-Meteo. In `localStorage` restano preferenze, posti recenti e ultima previsione. Nell'app iOS il widget usa la posizione del telefono e chiede ad Apple il nome del posto; l'ultima previsione resta anche nell'App Group condiviso tra app e widget.
+Nessun backend, account, cookie o statistica. La posizione va a Open-Meteo (previsioni e onde) e BigDataCloud, le ricerche a Open-Meteo. In `localStorage` restano preferenze, posti recenti e ultima previsione. Nell'app iOS il widget usa la posizione del telefono e chiede ad Apple il nome del posto; l'ultima previsione resta anche nell'App Group condiviso tra app e widget.

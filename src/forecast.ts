@@ -58,6 +58,8 @@ export interface Forecast {
   timezone: string;
   current: HourPoint;
   next24: HourPoint[];
+  /** Every hour from the current one to the end of the forecast (about four days). */
+  ahead: HourPoint[];
   days: DaySummary[];
   /** Direction swing over the next 6 hours, drawn as a sector on the rose. */
   spread: { mean: number; half: number };
@@ -129,6 +131,7 @@ export function buildForecast(r: OpenMeteoResponse, now?: string): Forecast {
     timezone: r.timezone,
     current: stale && next24[0] ? next24[0] : live,
     next24,
+    ahead: hours.slice(startIdx),
     days,
     spread: directionSpread(next24.slice(0, 6).map((p) => p.dir)),
     alert: gustAlert(next24),

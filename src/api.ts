@@ -1,4 +1,5 @@
 import type { OpenMeteoResponse } from './forecast';
+import type { MarineResponse } from './marine';
 import { isNative, nativePosition } from './native';
 
 /** How the place was chosen: only GPS positions follow the device and get a name by reverse geocoding. */
@@ -13,11 +14,14 @@ export interface Place {
 }
 
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
+const MARINE_URL = 'https://marine-api.open-meteo.com/v1/marine';
 const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const REVERSE_URL = 'https://api.bigdatacloud.net/data/reverse-geocode-client';
 
 const WIND_VARS = 'wind_speed_10m,wind_gusts_10m,wind_direction_10m';
 const RAIN_VARS = 'precipitation,precipitation_probability';
+const SEA_VARS =
+  'wave_height,wave_direction,wave_period,wind_wave_height,wind_wave_direction,swell_wave_height,swell_wave_direction,swell_wave_period';
 
 async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(url, { signal: signal ?? AbortSignal.timeout(12_000) });
@@ -37,6 +41,22 @@ export function fetchForecast(lat: number, lon: number): Promise<OpenMeteoRespon
     wind_speed_unit: 'kmh',
   });
   return getJson<OpenMeteoResponse>(`${FORECAST_URL}?${q}`);
+}
+
+/**
+ * Waves from Open-Meteo Marine, same terms as the forecast. It answers from the nearest sea cell of
+ * its wave models (a few km wide), and with nulls far from the sea.
+ */
+export function fetchMarine(lat: number, lon: number): Promise<MarineResponse> {
+  const q = new URLSearchParams({
+    latitude: lat.toFixed(4),
+    longitude: lon.toFixed(4),
+    hourly: SEA_VARS,
+    timezone: 'auto',
+    forecast_days: '5',
+    cell_selection: 'sea',
+  });
+  return getJson<MarineResponse>(`${MARINE_URL}?${q}`);
 }
 
 interface GeocodeResult {

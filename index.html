@@ -42,6 +42,11 @@
         </section>
 
         <section class="details" id="details" hidden>
+          <div class="panel insight">
+            <h2>In breve</h2>
+            <p class="summary" id="summary"></p>
+            <ul class="facts" id="facts"></ul>
+          </div>
           <div class="panel">
             <h2>Prossime 24 ore</h2>
             <p class="readout" id="readout"></p>
@@ -54,6 +59,33 @@
           <div class="panel">
             <h2>Prossimi giorni</h2>
             <div id="days" class="days"></div>
+          </div>
+          <div class="panel more" id="more">
+            <h2>Approfondimenti</h2>
+            <details class="more-item" id="more-coste">
+              <summary><span class="more-title">Coste esposte e ripari</span><span class="more-status"></span><svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg></summary>
+              <div class="more-body"></div>
+            </details>
+            <details class="more-item" id="more-mare">
+              <summary><span class="more-title">Mare e onde</span><span class="more-status"></span><svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg></summary>
+              <div class="more-body"></div>
+            </details>
+            <details class="more-item" id="more-maestrale">
+              <summary><span class="more-title">Maestrale</span><span class="more-status"></span><svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg></summary>
+              <div class="more-body"></div>
+            </details>
+            <details class="more-item" id="more-camper">
+              <summary><span class="more-title">Camper e attività all’aperto</span><span class="more-status"></span><svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg></summary>
+              <div class="more-body"></div>
+            </details>
+            <details class="more-item" id="more-beaufort">
+              <summary><span class="more-title">Scala Beaufort</span><span class="more-status"></span><svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg></summary>
+              <div class="more-body"></div>
+            </details>
+            <details class="more-item" id="more-rosa">
+              <summary><span class="more-title">Rosa dei venti</span><span class="more-status"></span><svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg></summary>
+              <div class="more-body"></div>
+            </details>
           </div>
           <div class="panel alerts-panel" id="alerts-panel" hidden>
             <h2>Avvisi raffiche</h2>
@@ -71,7 +103,9 @@
             <p>La lancetta indica da dove arriva il vento, il ventaglio chiaro quanto girerà nelle prossime 6 ore, l'arco azzurro sull'anello da dove arriverà la pioggia. I nomi seguono la rosa dei venti del Mediterraneo.</p>
             <p>
               <a href="https://open-meteo.com/" rel="noopener" target="_blank">Weather data by Open-Meteo.com</a>
-              (<a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener" target="_blank">CC BY 4.0</a>).
+              (<a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener" target="_blank">CC BY 4.0</a>). Onde da
+              <a href="https://open-meteo.com/en/docs/marine-weather-api" rel="noopener" target="_blank">Open-Meteo Marine</a>, con modelli di DWD,
+              ECMWF, Météo-France, NOAA e Copernicus Marine. Riepiloghi, esposizione delle coste e consigli sono elaborati dall’app su questi dati.
               Ricerca posti con dati <a href="https://www.geonames.org/" rel="noopener" target="_blank">GeoNames</a>, nome del posto da
               <a href="https://www.bigdatacloud.com/" rel="noopener" target="_blank">BigDataCloud</a>.
             </p>

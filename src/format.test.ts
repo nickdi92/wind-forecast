@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agoLabel, alertCopy, dayLabel, hourLabel, localIso } from './format';
+import { agoLabel, alertCopy, dayLabel, dayWord, hourLabel, localIso, whenLabel } from './format';
 import type { GustAlert } from './alerts';
 
 describe('hourLabel', () => {
@@ -75,5 +75,30 @@ describe('localIso', () => {
 
   it('crosses midnight correctly', () => {
     expect(localIso(new Date('2026-10-22T23:30:00Z'), 'Europe/Rome')).toBe('2026-10-23T01:30');
+  });
+});
+
+describe('whenLabel', () => {
+  it.each([
+    ['2026-10-24T04:00', 'prima dell’alba'],
+    ['2026-10-24T09:00', 'in mattinata'],
+    ['2026-10-24T15:00', 'nel pomeriggio'],
+    ['2026-10-24T19:00', 'in serata'],
+    ['2026-10-24T23:00', 'in nottata'],
+    ['2026-10-25T03:00', 'nella notte'],
+    ['2026-10-25T08:00', 'domattina'],
+    ['2026-10-25T14:00', 'domani pomeriggio'],
+    ['2026-10-25T20:00', 'domani sera'],
+    ['2026-10-26T10:00', 'lunedì mattina'],
+  ])('%s → %s', (time, label) => {
+    expect(whenLabel(time, '2026-10-24')).toBe(label);
+  });
+});
+
+describe('dayWord', () => {
+  it('names days the way a sentence does', () => {
+    expect(dayWord('2026-10-24', '2026-10-24')).toBe('oggi');
+    expect(dayWord('2026-10-25', '2026-10-24')).toBe('domani');
+    expect(dayWord('2026-10-27', '2026-10-24')).toBe('martedì');
   });
 });

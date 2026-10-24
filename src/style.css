@@ -292,6 +292,21 @@ button {
   font-weight: 600;
 }
 
+/* Names open the wind guide: the layers above them let taps through. */
+.rose.pickable > canvas,
+.rose.pickable > .rose-fg {
+  pointer-events: none;
+}
+
+.rose.pickable .rose-name {
+  cursor: pointer;
+}
+
+.rose.pickable .rose-name:hover,
+.rose-name.picked:not(.on) {
+  fill: var(--ink);
+}
+
 .sector {
   transition: opacity 0.4s;
 }
@@ -881,6 +896,509 @@ body.loading .wind-name.small {
   font-size: 15px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* ---------- in breve ---------- */
+
+.summary {
+  margin: 0 0 14px;
+  font-size: 17px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.facts button {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 76px 1fr 12px;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.facts button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.fact-k {
+  color: var(--ink-3);
+  font-size: 13px;
+}
+
+.fact-v {
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+.facts .warn .fact-k {
+  color: var(--alert);
+}
+
+.facts .danger .fact-k {
+  color: var(--danger);
+}
+
+.fact-go {
+  color: var(--ink-3);
+  align-self: center;
+}
+
+/* ---------- approfondimenti ---------- */
+
+.more-item > summary {
+  list-style: none;
+  display: grid;
+  grid-template-columns: auto 1fr 14px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  scroll-margin-top: 12px;
+}
+
+.more-item > summary::-webkit-details-marker {
+  display: none;
+}
+
+.more-item > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.more-title {
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.more-status {
+  min-width: 0;
+  text-align: right;
+  font-size: 13px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.more-status.warn {
+  color: var(--alert);
+}
+
+.more-status.danger {
+  color: var(--danger);
+}
+
+.more-item[open] .chev {
+  transform: rotate(180deg);
+}
+
+.more-body {
+  padding: 14px 0 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+.more-item[open] .more-body {
+  animation: open-slots 0.22s ease-out;
+}
+
+.more-body p {
+  margin: 0 0 10px;
+  text-wrap: pretty;
+}
+
+.more-body strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.more-body .note {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.more-body ul,
+.more-body ol {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+/* coasts */
+
+.coast-grid {
+  display: grid;
+  grid-template-columns: minmax(110px, 38%) 1fr;
+  gap: 14px;
+  align-items: start;
+  margin: 4px 0 12px;
+}
+
+.coast-map {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.cm-land {
+  fill: rgba(230, 239, 233, 0.06);
+  stroke: none;
+}
+
+.cm-coast {
+  fill: none;
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cm-coast.esposta,
+.exp.esposta {
+  stroke: var(--danger);
+  color: var(--danger);
+}
+
+.cm-coast.laterale,
+.exp.laterale {
+  stroke: var(--alert);
+  color: var(--alert);
+}
+
+.cm-coast.ridossata,
+.exp.ridossata {
+  stroke: var(--sea);
+  color: var(--sea);
+}
+
+.cm-coast.neutral {
+  stroke: var(--ink-3);
+}
+
+.cm-coast.here {
+  stroke-width: 7;
+}
+
+.cm-wind {
+  fill: none;
+  stroke: rgba(var(--accent-rgb), 0.45);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cm-place circle:first-child {
+  fill: rgba(var(--accent-rgb), 0.3);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.cm-place circle:last-child {
+  fill: var(--ink);
+}
+
+.cm-north {
+  fill: var(--ink-3);
+  font: 10px var(--sans);
+  text-anchor: end;
+}
+
+.seg-list li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.seg-list li.here .seg-name {
+  color: var(--accent);
+}
+
+.seg-name {
+  color: var(--ink);
+}
+
+.seg-name small {
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.seg-places {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--ink-3);
+  line-height: 1.3;
+}
+
+.exp {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.exp-legend li {
+  font-size: 13px;
+  padding: 2px 0;
+}
+
+/* sea */
+
+.sea-strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 78px;
+  margin: 6px 0 12px;
+  padding-bottom: 18px;
+  position: relative;
+}
+
+.ss-col {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+}
+
+.ss-bar {
+  width: 100%;
+  border-radius: 2px 2px 0 0;
+  background: rgba(var(--rain-rgb), 0.35);
+}
+
+.ss-bar.d3 {
+  background: rgba(var(--rain-rgb), 0.7);
+}
+
+.ss-bar.d4 {
+  background: var(--alert);
+}
+
+.ss-bar.d5,
+.ss-bar.d6 {
+  background: var(--danger);
+}
+
+.ss-day {
+  position: absolute;
+  left: 0;
+  bottom: -18px;
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+details.scale summary {
+  cursor: pointer;
+  width: fit-content;
+  font-size: 13px;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+
+.douglas li {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+
+.douglas li span {
+  color: var(--ink-3);
+}
+
+.douglas li.on,
+.beaufort li.on {
+  color: var(--ink);
+  background: rgba(var(--accent-rgb), 0.08);
+  border-radius: 4px;
+}
+
+/* maestrale */
+
+.windows li {
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.windows li span {
+  color: var(--ink-3);
+}
+
+.windows li b {
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.windows li.on b {
+  color: var(--ink);
+}
+
+/* camper */
+
+.tips li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.tips li b {
+  color: var(--ink);
+  font-weight: 600;
+  margin-right: 2px;
+}
+
+.tips .dot {
+  color: var(--sea);
+}
+
+.tips .warn .dot {
+  color: var(--alert);
+}
+
+.tips .danger .dot {
+  color: var(--danger);
+}
+
+/* beaufort */
+
+.beaufort li {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  column-gap: 8px;
+  padding: 7px 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.bf-n {
+  font-size: 15px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.bf-name {
+  color: var(--ink);
+}
+
+.bf-name em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 4px;
+  color: var(--accent);
+}
+
+.bf-name em.g {
+  color: var(--alert);
+}
+
+.bf-range {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bf-fx {
+  grid-column: 2 / -1;
+  color: var(--ink-3);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.beaufort li.gust {
+  box-shadow: inset 2px 0 0 var(--alert);
+}
+
+/* wind guide */
+
+.wind-picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 4px 0 12px;
+}
+
+.wind-picker button {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.wind-picker button small {
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+.wind-picker button.now span {
+  color: var(--accent);
+}
+
+.wind-picker button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.08);
+  color: var(--ink);
+}
+
+.wind-picker button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wind-card {
+  padding: 12px 14px 4px;
+  border-radius: 10px;
+  background: rgba(230, 239, 233, 0.04);
+  margin-bottom: 10px;
+}
+
+.wc-name {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 26px;
+  line-height: 1.1;
+  color: var(--accent);
+}
+
+.wc-name small {
+  font-family: var(--sans);
+  font-style: normal;
+  font-size: 12px;
+  color: var(--ink-3);
 }
 
 /* ---------- footer, buttons ---------- */

@@ -7,12 +7,14 @@ import './style.css';
 import { registerSW } from 'virtual:pwa-register';
 
 import { GUST_WARN } from './alerts';
-import { currentPosition, fetchForecast, placeName, type Place, type PlaceSource } from './api';
+import { currentPosition, fetchForecast, fetchMarine, placeName, type Place, type PlaceSource } from './api';
 import { HourChart } from './chart';
 import { DayList } from './days';
 import { buildForecast, type Forecast, type HourPoint, type OpenMeteoResponse } from './forecast';
 import { agoLabel, alertCopy, hourLabel, localIso } from './format';
+import { buildSea, type MarineResponse } from './marine';
 import { isNative, syncPayload, vento, type AlertsStatus } from './native';
+import { Panels, type SeaStatus } from './panels';
 import { rainLabel, rainShort, rainSpellCopy } from './rain';
 import { Rose } from './rose';
 import { Search } from './search';
@@ -32,6 +34,8 @@ interface Shown {
   source: PlaceSource;
   data: OpenMeteoResponse;
   fetchedAt: number;
+  /** Waves, fetched next to the forecast: null when that request failed, missing in older caches. */
+  marine?: MarineResponse | null;
 }
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
@@ -61,8 +65,11 @@ let selectedTime: string | null = null;
 let renderedHour = '';
 let unit: SpeedUnit = load<SpeedUnit>(UNIT_KEY) ?? 'kmh';
 let requestId = 0;
+/** The sea request of this place is still running. */
+let seaPending = false;
 
-const rose = new Rose($('#rose'));
+const rose = new Rose($('#rose'), (name) => panels.showWind(name));
+const panels = new Panels($('#summary'), $('#facts'), $('#more'), (name) => rose.pick(name));
 const chart = new HourChart($('#chart'), (i) => selectHour(i));
 
 function selectedIndex(): number | null {
@@ -150,6 +157,7 @@ function renderReading(): void {
     spread: now ? forecast.spread : null,
     rain: spell?.spread ? { ...spell.spread, wet: spell.wet } : null,
   });
+  panels.select(p, now);
 }
 
 function renderAlert(): void {
@@ -177,7 +185,16 @@ function renderAll(): void {
   renderAlert();
   chart.render(forecast.next24, unit, selectedIndex());
   dayList.render(forecast.days, forecast.current.time.slice(0, 10), unit);
+  renderPanels(localNow);
   renderAlertsPanel();
+}
+
+/** Summary and deep dives: interpretations built from the stored responses, never stored themselves. */
+function renderPanels(localNow?: string): void {
+  if (!shown || !forecast) return;
+  const sea = buildSea(shown.marine, shown.place, localNow ?? localIso(new Date(), shown.data.timezone));
+  const seaStatus: SeaStatus = sea ? 'ok' : shown.marine ? 'none' : seaPending ? 'loading' : 'failed';
+  panels.render({ forecast, sea, seaStatus, place: shown.place, unit }, displayedPoint()!, selectedIndex() === null);
 }
 
 function renderMessage(title: string, body: string, actions: { label: string; run: () => void }[]): void {
@@ -219,24 +236,38 @@ async function loadPlace(place: Place, source: PlaceSource, resolveName = false)
   }
   try {
     const name = resolveName ? placeName(place.lat, place.lon) : Promise.resolve(place.name);
+    // Waves never hold up the wind: they arrive when they arrive, or the panel says they are missing.
+    const marine = fetchMarine(place.lat, place.lon).catch(() => null);
     const data = await fetchForecast(place.lat, place.lon);
     if (id !== requestId) return; // a newer request won
     // Keep the last known name while reverse geocoding runs, so the forecast never waits for it.
     const sameSpot = shown && Math.abs(shown.place.lat - place.lat) < 0.05 && Math.abs(shown.place.lon - place.lon) < 0.05;
     const provisional = resolveName && sameSpot ? shown!.place.name : place.name;
-    shown = { place: { ...place, name: provisional }, source, data, fetchedAt: Date.now() };
+    shown = { place: { ...place, name: provisional }, source, data, fetchedAt: Date.now(), marine: sameSpot ? shown!.marine : undefined };
+    seaPending = true;
     persist();
     renderAll();
+    marine.then((sea) => {
+      if (id !== requestId || !shown) return;
+      seaPending = false;
+      // A failed request keeps the waves already shown for this spot: realigned by hour like the wind.
+      shown.marine = sea ?? shown.marine ?? null;
+      persist();
+      renderPanels();
+    });
     const resolved = await name;
     if (id === requestId && resolved && shown) {
       shown.place.name = resolved;
       persist();
       renderHeader();
+      renderPanels();
     }
   } catch {
     if (id !== requestId) return;
+    seaPending = false;
     if (shown) {
       renderHeader();
+      renderPanels();
       toast(navigator.onLine ? `Previsioni per ${place.name} non raggiungibili. Riprova tra poco.` : 'Sei offline: mostro gli ultimi dati scaricati.');
     } else {
       document.body.classList.remove('loading');

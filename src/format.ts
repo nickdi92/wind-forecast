@@ -30,13 +30,37 @@ const utcDate = (ymd: string): Date => {
 };
 
 const weekday = new Intl.DateTimeFormat('it-IT', { weekday: 'short', timeZone: 'UTC' });
+const weekdayLong = new Intl.DateTimeFormat('it-IT', { weekday: 'long', timeZone: 'UTC' });
+
+/** Calendar days from `today` to `date`, both "2026-10-22". */
+export const daysBetween = (date: string, today: string): number =>
+  Math.round((utcDate(date.slice(0, 10)).getTime() - utcDate(today.slice(0, 10)).getTime()) / 86_400_000);
+
+export const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function dayLabel(date: string, today: string): string {
-  const diff = Math.round((utcDate(date).getTime() - utcDate(today).getTime()) / 86_400_000);
+  const diff = daysBetween(date, today);
   if (diff === 0) return 'Oggi';
   if (diff === 1) return 'Domani';
   const wd = weekday.format(utcDate(date)).replace('.', '');
   return `${wd.charAt(0).toUpperCase()}${wd.slice(1)} ${Number(date.slice(8, 10))}`;
+}
+
+/** Day as said in a sentence: "oggi", "domani", "lunedì". */
+export function dayWord(date: string, today: string): string {
+  const diff = daysBetween(date, today);
+  if (diff === 0) return 'oggi';
+  if (diff === 1) return 'domani';
+  return weekdayLong.format(utcDate(date.slice(0, 10)));
+}
+
+/** When something happens, as a forecast says it: "nel pomeriggio", "domattina", "lunedì sera". */
+export function whenLabel(time: string, today: string): string {
+  const h = Number(time.slice(11, 13));
+  const diff = daysBetween(time, today);
+  if (diff <= 0) return h < 6 ? 'prima dell’alba' : h < 12 ? 'in mattinata' : h < 18 ? 'nel pomeriggio' : h < 22 ? 'in serata' : 'in nottata';
+  if (diff === 1) return h < 6 ? 'nella notte' : h < 12 ? 'domattina' : h < 18 ? 'domani pomeriggio' : 'domani sera';
+  return `${dayWord(time, today)} ${h < 6 ? 'notte' : h < 12 ? 'mattina' : h < 18 ? 'pomeriggio' : 'sera'}`;
 }
 
 export function agoLabel(ms: number): string {

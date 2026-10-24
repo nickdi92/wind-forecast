@@ -8,17 +8,78 @@ export interface Wind {
   deg: number;
   /** Southern winds (Scirocco, Ostro, Libeccio) bring warm air. */
   warm: boolean;
+  /** Only Tramontana: adjectives agree with it ("Tramontana tesa", "Maestrale teso"). */
+  feminine?: boolean;
+  /** What it is usually like, Sardinia first. Climate, not forecast. */
+  about: string;
 }
 
 export const WINDS: readonly Wind[] = [
-  { name: 'Tramontana', cardinal: 'N', direction: 'nord', deg: 0, warm: false },
-  { name: 'Grecale', cardinal: 'NE', direction: 'nord-est', deg: 45, warm: false },
-  { name: 'Levante', cardinal: 'E', direction: 'est', deg: 90, warm: false },
-  { name: 'Scirocco', cardinal: 'SE', direction: 'sud-est', deg: 135, warm: true },
-  { name: 'Ostro', cardinal: 'S', direction: 'sud', deg: 180, warm: true },
-  { name: 'Libeccio', cardinal: 'SO', direction: 'sud-ovest', deg: 225, warm: true },
-  { name: 'Ponente', cardinal: 'O', direction: 'ovest', deg: 270, warm: false },
-  { name: 'Maestrale', cardinal: 'NO', direction: 'nord-ovest', deg: 315, warm: false },
+  {
+    name: 'Tramontana',
+    cardinal: 'N',
+    direction: 'nord',
+    deg: 0,
+    warm: false,
+    feminine: true,
+    about: 'Fredda e secca, scende da nord: di solito cielo limpido e temperature in calo. In Sardegna batte soprattutto le coste settentrionali.',
+  },
+  {
+    name: 'Grecale',
+    cardinal: 'NE',
+    direction: 'nord-est',
+    deg: 45,
+    warm: false,
+    about: 'Fresco, a volte umido, arriva da nord-est: alza il mare sulle coste rivolte a nord-est, in Sardegna la Gallura e la costa nord-orientale.',
+  },
+  {
+    name: 'Levante',
+    cardinal: 'E',
+    direction: 'est',
+    deg: 90,
+    warm: false,
+    about: 'Spesso umido, porta nuvole e piogge sui versanti orientali. Nelle Bocche di Bonifacio si incanala e rinforza.',
+  },
+  {
+    name: 'Scirocco',
+    cardinal: 'SE',
+    direction: 'sud-est',
+    deg: 135,
+    warm: true,
+    about: 'Caldo e umido, arriva dal Nord Africa: afa, foschia, a volte sabbia del Sahara. Alza il mare sulle coste rivolte a sud-est.',
+  },
+  {
+    name: 'Ostro',
+    cardinal: 'S',
+    direction: 'sud',
+    deg: 180,
+    warm: true,
+    about: 'Caldo e umido, spesso con nuvole e piogge. Alza il mare sulle coste meridionali, in Sardegna dal Golfo di Cagliari a Chia.',
+  },
+  {
+    name: 'Libeccio',
+    cardinal: 'SO',
+    direction: 'sud-ovest',
+    deg: 225,
+    warm: true,
+    about: 'Può essere forte e tempestoso, con mareggiate sulle coste esposte. In Sardegna batte il Sulcis e la costa occidentale.',
+  },
+  {
+    name: 'Ponente',
+    cardinal: 'O',
+    direction: 'ovest',
+    deg: 270,
+    warm: false,
+    about: 'Arriva da ovest, spesso con il passaggio delle perturbazioni atlantiche. Nelle Bocche di Bonifacio si incanala e rinforza.',
+  },
+  {
+    name: 'Maestrale',
+    cardinal: 'NO',
+    direction: 'nord-ovest',
+    deg: 315,
+    warm: false,
+    about: 'Fresco e secco, arriva da nord-ovest: cielo terso, ottima visibilità, spesso forte. In Sardegna è il vento dominante e il più intenso.',
+  },
 ];
 
 /** Below this the app shows "Calma" instead of a wind name. */
@@ -32,20 +93,27 @@ export function windFrom(deg: number): Wind {
   return WINDS[sector];
 }
 
-const BEAUFORT: readonly [min: number, label: string][] = [
-  [0, 'Calma'],
-  [1, 'Bava di vento'],
-  [6, 'Brezza leggera'],
-  [12, 'Brezza tesa'],
-  [20, 'Vento moderato'],
-  [29, 'Vento teso'],
-  [39, 'Vento fresco'],
-  [50, 'Vento forte'],
-  [62, 'Burrasca moderata'],
-  [75, 'Burrasca forte'],
-  [89, 'Tempesta'],
-  [103, 'Fortunale'],
-  [118, 'Uragano'],
+/** Where the air goes: the opposite point, spelled out ("sud-est" for a wind from 315°). */
+export const windTowards = (deg: number): string => windFrom(deg + 180).direction;
+
+/** Shortest angle between two bearings, 0–180°. */
+export const angleBetween = (a: number, b: number): number => Math.abs(((normalizeDeg(a - b) + 180) % 360) - 180);
+
+/** WMO Beaufort scale: lower bound in km/h, Italian name, what you see on land and at sea. */
+const BEAUFORT: readonly [min: number, label: string, land: string, sea: string][] = [
+  [0, 'Calma', 'Il fumo sale dritto.', 'Mare piatto, a specchio.'],
+  [1, 'Bava di vento', 'Il fumo si piega, le banderuole restano ferme.', 'Piccole increspature, senza creste.'],
+  [6, 'Brezza leggera', 'Il vento si sente sul viso, le foglie frusciano.', 'Onde corte, creste lisce che non si rompono.'],
+  [12, 'Brezza tesa', 'Foglie e rametti sempre in movimento, le bandiere leggere si distendono.', 'Le prime creste si rompono, qualche pecorella.'],
+  [20, 'Vento moderato', 'Si alzano polvere e carta, si muovono i rami piccoli.', 'Onde più lunghe, pecorelle frequenti.'],
+  [29, 'Vento teso', 'Oscillano gli alberelli, increspature sugli specchi d’acqua interni.', 'Onde moderate e allungate, molte pecorelle, qualche spruzzo.'],
+  [39, 'Vento fresco', 'Si muovono i rami grossi, i fili fischiano, l’ombrello si usa a fatica.', 'Onde grandi, creste bianche estese, spruzzi.'],
+  [50, 'Vento forte', 'Alberi interi in movimento, si cammina a fatica controvento.', 'Il mare si ingrossa, la schiuma si allinea in strisce.'],
+  [62, 'Burrasca moderata', 'Si spezzano i rami, camminare è molto difficile.', 'Onde alte e lunghe, le creste si rompono in spruzzi.'],
+  [75, 'Burrasca forte', 'Danni leggeri: tegole, comignoli, insegne.', 'Onde alte, dense strisce di schiuma, spruzzi che tolgono visibilità.'],
+  [89, 'Tempesta', 'Alberi sradicati, danni seri alle costruzioni.', 'Onde molto alte, mare bianco di schiuma.'],
+  [103, 'Fortunale', 'Danni estesi. Molto raro.', 'Onde eccezionali, mare coperto di schiuma.'],
+  [118, 'Uragano', 'Devastazione.', 'Aria piena di schiuma e spruzzi, visibilità quasi nulla.'],
 ];
 
 export function beaufort(kmh: number): { force: number; label: string } {
@@ -56,6 +124,14 @@ export function beaufort(kmh: number): { force: number; label: string } {
   return { force, label: BEAUFORT[force][1] };
 }
 
+export const beaufortLabel = (force: number): string => BEAUFORT[Math.max(0, Math.min(12, force))][1];
+
+/** Observable effects of a Beaufort force. The scale describes the mean wind, not the gusts. */
+export function beaufortEffects(force: number): { land: string; sea: string } {
+  const [, , land, sea] = BEAUFORT[Math.max(0, Math.min(12, force))];
+  return { land, sea };
+}
+
 export type SpeedUnit = 'kmh' | 'kn' | 'ms';
 
 export const UNIT_LABEL: Record<SpeedUnit, string> = { kmh: 'km/h', kn: 'nodi', ms: 'm/s' };
@@ -64,6 +140,40 @@ const UNIT_FACTOR: Record<SpeedUnit, number> = { kmh: 1, kn: 1 / 1.852, ms: 1 / 
 
 export function convertSpeed(kmh: number, unit: SpeedUnit): number {
   return Math.round(kmh * UNIT_FACTOR[unit]);
+}
+
+/** "24 km/h", "13 nodi". */
+export const speedLabel = (kmh: number, unit: SpeedUnit): string => `${convertSpeed(kmh, unit)} ${UNIT_LABEL[unit]}`;
+
+/**
+ * Lower bound of each Beaufort force from the WMO table of each unit, not converted from km/h,
+ * so the ranges keep their official round numbers.
+ */
+export const BEAUFORT_FROM: Record<SpeedUnit, readonly number[]> = {
+  kmh: [0, 1, 6, 12, 20, 29, 39, 50, 62, 75, 89, 103, 118],
+  kn: [0, 1, 4, 7, 11, 17, 22, 28, 34, 41, 48, 56, 64],
+  ms: [0, 0.3, 1.6, 3.4, 5.5, 8, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7],
+};
+
+/** "20–28 km/h", "5,5–7,9 m/s", "da 118 km/h". */
+export function beaufortRange(force: number, unit: SpeedUnit): string {
+  const from = BEAUFORT_FROM[unit];
+  const step = unit === 'ms' ? 0.1 : 1;
+  const num = (v: number) => (unit === 'ms' ? v.toFixed(1).replace('.', ',') : String(v));
+  if (force >= 12) return `da ${num(from[12])} ${UNIT_LABEL[unit]}`;
+  if (force <= 0) return `meno di ${num(from[1])} ${UNIT_LABEL[unit]}`;
+  return `${num(from[force])}–${num(+(from[force + 1] - step).toFixed(1))} ${UNIT_LABEL[unit]}`;
+}
+
+/** How Italian bulletins grade the wind: deboli, moderati, tesi, forti, di burrasca, di tempesta. */
+export function intensityWord(kmh: number, feminine = false): string {
+  const { force } = beaufort(kmh);
+  if (force <= 3) return 'debole';
+  if (force === 4) return feminine ? 'moderata' : 'moderato';
+  if (force === 5) return feminine ? 'tesa' : 'teso';
+  if (force <= 7) return 'forte';
+  if (force <= 9) return 'di burrasca';
+  return 'di tempesta';
 }
 
 const rad = (d: number) => (d * Math.PI) / 180;

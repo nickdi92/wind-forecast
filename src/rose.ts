@@ -124,7 +124,11 @@ export class Rose {
   private raf = 0;
   private rgb = '143,227,200';
 
-  constructor(private readonly root: HTMLElement) {
+  /** @param onName Called with the wind name tapped on the dial. */
+  constructor(
+    private readonly root: HTMLElement,
+    onName?: (name: string) => void,
+  ) {
     root.classList.add('rose', 'intro');
     root.innerHTML = `
       <svg class="rose-bg" viewBox="${-VIEW / 2} ${-VIEW / 2} ${VIEW} ${VIEW}" aria-hidden="true">
@@ -160,6 +164,11 @@ export class Rose {
     this.rainArc = root.querySelector('.rain-arc')!;
     this.nameEls = [...root.querySelectorAll<SVGTextElement>('.rose-name')];
 
+    if (onName) {
+      root.classList.add('pickable');
+      for (const el of this.nameEls) el.addEventListener('click', () => onName(el.dataset.wind!));
+    }
+
     new ResizeObserver(() => this.resize()).observe(root);
     document.addEventListener('visibilitychange', () => (document.hidden ? this.stop() : this.start()));
     root.addEventListener('animationend', (e) => {
@@ -184,6 +193,11 @@ export class Rose {
       this.drawNeedle();
     }
     if (reducedMotion()) this.drawStaticField();
+  }
+
+  /** Marks the wind open in the guide; null clears it. */
+  pick(name: string | null): void {
+    for (const el of this.nameEls) el.classList.toggle('picked', el.dataset.wind === name);
   }
 
   private resize(): void {

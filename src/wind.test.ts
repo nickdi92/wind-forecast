@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { beaufort, convertSpeed, directionSpread, windFrom } from './wind';
+import {
+  angleBetween,
+  beaufort,
+  BEAUFORT_FROM,
+  beaufortEffects,
+  beaufortLabel,
+  beaufortRange,
+  convertSpeed,
+  directionSpread,
+  intensityWord,
+  speedLabel,
+  windFrom,
+  windTowards,
+} from './wind';
 
 describe('windFrom', () => {
   it.each([
@@ -96,5 +109,84 @@ describe('directionSpread', () => {
 
   it('caps half-width at 90°', () => {
     expect(directionSpread([0, 90, 180, 270]).half).toBe(90);
+  });
+});
+
+describe('windTowards', () => {
+  it.each([
+    [315, 'sud-est'],
+    [0, 'sud'],
+    [135, 'nord-ovest'],
+    [270, 'est'],
+  ])('wind from %i° blows towards %s', (deg, to) => {
+    expect(windTowards(deg)).toBe(to);
+  });
+});
+
+describe('angleBetween', () => {
+  it('measures the short way round', () => {
+    expect(angleBetween(350, 10)).toBe(20);
+    expect(angleBetween(10, 350)).toBe(20);
+    expect(angleBetween(90, 270)).toBe(180);
+  });
+});
+
+describe('Beaufort scale', () => {
+  it('uses the official WMO bands in every unit', () => {
+    expect(BEAUFORT_FROM.kmh).toEqual([0, 1, 6, 12, 20, 29, 39, 50, 62, 75, 89, 103, 118]);
+    expect(BEAUFORT_FROM.kn).toEqual([0, 1, 4, 7, 11, 17, 22, 28, 34, 41, 48, 56, 64]);
+    expect(BEAUFORT_FROM.ms).toEqual([0, 0.3, 1.6, 3.4, 5.5, 8, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7]);
+  });
+
+  it('keeps the km/h bands consistent with the other units', () => {
+    // The WMO tables are rounded separately (force 5 starts at 17 kn but 8.0 m/s, i.e. 15.6 kn): close, not equal.
+    BEAUFORT_FROM.ms.forEach((ms, f) => {
+      expect(Math.abs(BEAUFORT_FROM.kmh[f] - ms * 3.6)).toBeLessThanOrEqual(1);
+      expect(Math.abs(BEAUFORT_FROM.kn[f] - (ms * 3.6) / 1.852)).toBeLessThan(1.5);
+    });
+  });
+
+  it.each([
+    [0, 'kmh', 'meno di 1 km/h'],
+    [4, 'kmh', '20–28 km/h'],
+    [4, 'kn', '11–16 nodi'],
+    [4, 'ms', '5,5–7,9 m/s'],
+    [7, 'kmh', '50–61 km/h'],
+    [12, 'kmh', 'da 118 km/h'],
+    [12, 'ms', 'da 32,7 m/s'],
+  ] as const)('force %i in %s spans %s', (force, unit, range) => {
+    expect(beaufortRange(force, unit)).toBe(range);
+  });
+
+  it('describes what each force looks like on land and at sea', () => {
+    for (let f = 0; f <= 12; f++) {
+      const e = beaufortEffects(f);
+      expect(e.land.length).toBeGreaterThan(5);
+      expect(e.sea.length).toBeGreaterThan(5);
+    }
+    expect(beaufortEffects(0).land).toContain('fumo');
+    expect(beaufortLabel(6)).toBe('Vento fresco');
+  });
+});
+
+describe('intensityWord', () => {
+  it.each([
+    [10, false, 'debole'],
+    [24, false, 'moderato'],
+    [24, true, 'moderata'],
+    [33, false, 'teso'],
+    [33, true, 'tesa'],
+    [45, false, 'forte'],
+    [70, false, 'di burrasca'],
+    [95, false, 'di tempesta'],
+  ])('%i km/h (feminine %s) is %s', (kmh, fem, word) => {
+    expect(intensityWord(kmh, fem)).toBe(word);
+  });
+});
+
+describe('speedLabel', () => {
+  it('converts and adds the unit', () => {
+    expect(speedLabel(37.04, 'kn')).toBe('20 nodi');
+    expect(speedLabel(36, 'ms')).toBe('10 m/s');
   });
 });
