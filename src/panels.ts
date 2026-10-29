@@ -41,7 +41,7 @@ import {
   type SpeedUnit,
   type Wind,
 } from './wind';
-import { icelandAbout, isMediterranean, officialSources, type Zone } from './zone';
+import { icelandAbout, isMediterranean, nordicAbout, nordicCoastNotes, officialSources, type Zone } from './zone';
 
 /** Where the sea data stands: loaded, none for this place, still loading, or the request failed. */
 export type SeaStatus = 'ok' | 'none' | 'loading' | 'failed';
@@ -62,6 +62,8 @@ const MAESTRALE = WINDS.findIndex((w) => w.name === 'Maestrale');
 
 /** The wind of an hour in a line: "<strong>Maestrale</strong> da nord-ovest" or "vento da <strong>nord-ovest</strong>". */
 const windLine = (w: Wind): string => (mediterraneanNames() ? `<strong>${w.name}</strong> da ${w.direction}` : `vento da <strong>${w.direction}</strong>`);
+
+const todaySun = (f: Forecast) => f.days.find((d) => d.date === f.current.time.slice(0, 10))?.sun ?? null;
 
 /** Hour as the reading says it: "Adesso" or "Alle 15". */
 const whenShown = (p: HourPoint, isNow: boolean): string => (isNow ? 'Adesso' : `Alle ${hourLabel(p.time)}`);
@@ -178,11 +180,13 @@ export class Panels {
       });
     }
 
-    const tips = camperTips(f.current, f.ahead, unit, sea?.now ?? null, zone);
+    const tips = camperTips(f.current, f.ahead, unit, sea?.now ?? null, zone, todaySun(f));
     const flagged = tips.filter((t) => t.level !== 'ok').sort((a, b) => (a.level === b.level ? 0 : a.level === 'pericolo' ? -1 : 1));
     rows.push({
       k: 'Giornata',
-      v: flagged.length ? flagged.slice(0, 2).map((t) => `${t.title}: ${t.short}`).join(' · ') : 'Nessun problema per guida, sosta e spiaggia',
+      v: flagged.length
+        ? flagged.slice(0, 2).map((t) => `${t.title}: ${t.short}`).join(' · ')
+        : `Nessun problema per guida, sosta${tips.some((t) => t.id === 'spiaggia') ? ' e spiaggia' : ' e passeggiate'}`,
       open: 'camper',
       level: flagged.reduce<Level>((l, t) => worse(l, t.level), 'ok'),
     });
@@ -210,7 +214,7 @@ export class Panels {
   /* ---------- coste ---------- */
 
   private renderCoste(): void {
-    const { place } = this.input!;
+    const { place, zone } = this.input!;
     const p = this.point!;
     const when = whenShown(p, this.isNow);
     const light = p.speed < EXPOSURE_MIN;
@@ -237,6 +241,7 @@ export class Panels {
           <p class="note">Non è una mappa: ogni spicchio è una costa che guarda in quella direzione, colorata per come la prende il vento. La freccia va da dove arriva il vento a dove va.</p>
         </div>
         ${light ? '' : `<p>${genericExposure(p.dir)}</p>${legend}`}
+        ${zone === 'nordici' ? nordicCoastNotes().map((n) => `<p>${n}</p>`).join('') : ''}
         <p class="note">Le mappe delle coste per tratto ci sono per la Sardegna e l’Islanda. Qui l’app non conosce la linea di costa, quindi non indica zone riparate.</p>${caveat}`,
       );
       return;
@@ -415,7 +420,7 @@ export class Panels {
 
   private renderCamper(): void {
     const { forecast: f, sea, place, zone, unit } = this.input!;
-    const tips = camperTips(f.current, f.ahead, unit, sea?.now ?? null, zone);
+    const tips = camperTips(f.current, f.ahead, unit, sea?.now ?? null, zone, todaySun(f));
     const level = tips.reduce<Level>((l, t) => worse(l, t.level), 'ok');
     const flagged = tips.filter((t) => t.level !== 'ok');
     const top = flagged.filter((t) => t.level === level).map((t) => t.title.split(' ')[0].toLowerCase());
@@ -478,7 +483,9 @@ export class Panels {
       ? w.about
       : zone === 'islanda'
         ? icelandAbout(w.cardinal)
-        : 'Che aria porta un vento dipende dalla zona: l’app lo descrive solo per il Mediterraneo e l’Islanda.';
+        : zone === 'nordici'
+          ? nordicAbout(w.cardinal)
+          : 'Che aria porta un vento dipende dalla zona: l’app lo descrive solo per il Mediterraneo, l’Islanda, la Norvegia, la Svezia e la Finlandia.';
     const intro = med
       ? '<p>Il nome del vento dice <strong>da dove arriva</strong>, non dove va: il maestrale arriva da nord-ovest e spinge l’aria verso sud-est.'
       : '<p>Il vento si indica con la direzione <strong>da cui arriva</strong>, non con quella verso cui va: un vento da nord-ovest spinge l’aria verso sud-est. Qui l’app non usa i nomi del Mediterraneo (Maestrale, Scirocco…), che fuori da quel mare non hanno senso.';

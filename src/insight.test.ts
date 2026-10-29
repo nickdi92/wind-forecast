@@ -115,6 +115,7 @@ const day = (date: string, maxSpeed: number, dominantDir: number): DaySummary =>
   dominantDir,
   rain: 0,
   rainChance: 0,
+  snow: 0,
   slots: [],
 });
 

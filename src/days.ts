@@ -1,8 +1,8 @@
 import { GUST_DANGER, GUST_WARN } from './alerts';
 import type { DaySummary } from './forecast';
 import { dayLabel, hourLabel } from './format';
-import { mmLabel, RAIN_MIN, RAIN_POSSIBLE, rainShort } from './rain';
-import { dropIcon, needleIcon } from './ui';
+import { mmLabel, precipKind, RAIN_MIN, RAIN_POSSIBLE, rainShort } from './rain';
+import { needleIcon, precipIcon } from './ui';
 import { convertSpeed, UNIT_LABEL, windFrom, type SpeedUnit } from './wind';
 
 /** One row per day; tapping a row opens its 3-hourly breakdown. */
@@ -38,9 +38,12 @@ export class DayList {
         const w = windFrom(d.dominantDir);
         const isOpen = this.open.has(d.date);
         const level = d.maxGust >= GUST_DANGER ? 'danger' : d.maxGust >= GUST_WARN ? 'warn' : '';
+        // Snow in cm when it is most of the day's water; sleet and rain in mm.
+        const snowy = precipKind(d) === 'neve';
+        const amount = snowy ? `${mmLabel(d.snow)} cm` : `${mmLabel(d.rain)} mm`;
         const rain =
           d.rainChance >= RAIN_POSSIBLE
-            ? `${dropIcon(11, 'pioggia')}<b>${Math.round(d.rainChance)}%</b>${d.rain >= RAIN_MIN ? `<small>${mmLabel(d.rain)} mm</small>` : ''}`
+            ? `${precipIcon(snowy, 11, snowy ? 'neve' : 'pioggia')}<b>${Math.round(d.rainChance)}%</b>${d.rain >= RAIN_MIN ? `<small>${amount}</small>` : ''}`
             : '';
         const slots = d.slots
           .map(
@@ -49,7 +52,7 @@ export class DayList {
               ${needleIcon(s.dir, windFrom(s.dir).warm, 16)}
               <b>${convertSpeed(s.speed, u)}</b>
               <span class="slot-g">${convertSpeed(s.gust, u)}</span>
-              <span class="slot-r">${rainShort(s) ?? ''}</span>
+              <span class="slot-r${precipKind(s) === 'neve' ? ' snow' : ''}">${rainShort(s) ?? ''}</span>
             </li>`,
           )
           .join('');
@@ -64,7 +67,7 @@ export class DayList {
             </span>
             <svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
           </button>
-          <ul class="slots" id="slots-${d.date}" ${isOpen ? '' : 'hidden'} aria-label="Ogni 3 ore, media e raffiche in ${UNIT_LABEL[u]}, pioggia nelle tre ore">${slots}</ul>
+          <ul class="slots" id="slots-${d.date}" ${isOpen ? '' : 'hidden'} aria-label="Ogni 3 ore, media e raffiche in ${UNIT_LABEL[u]}, pioggia o neve nelle tre ore">${slots}</ul>
         </div>`;
       })
       .join('');

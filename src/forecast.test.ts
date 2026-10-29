@@ -164,6 +164,34 @@ describe('buildForecast', () => {
     expect(f.days.map((d) => d.date)).toEqual(['2026-10-24', '2026-10-25', '2026-10-26']);
   });
 
+  it('reads snow like rain, shifted to the hour it falls in, and the sky as it is', () => {
+    const r = fixture();
+    r.hourly.snowfall = r.hourly.time.map((_, i) => (i === 14 ? 0.7 : 0));
+    r.hourly.cloud_cover = r.hourly.time.map((_, i) => i);
+    r.hourly.is_day = r.hourly.time.map((t) => (t.slice(11, 13) >= '08' && t.slice(11, 13) < '16' ? 1 : 0));
+    r.daily.snowfall_sum = [0.7, 0, 0, 0, 0];
+    const f = buildForecast(r);
+    expect(f.current).toMatchObject({ snow: 0.7, cloud: 13, isDay: true });
+    expect(f.next24[3]).toMatchObject({ time: '2026-10-22T16:00', snow: 0, cloud: 16, isDay: false });
+    expect(f.days[0].slots[4].snow).toBeCloseTo(0.7, 5);
+    expect(f.days[0].snow).toBe(0.7);
+  });
+
+  it('leaves snow and sky out of forecasts cached before they were added', () => {
+    const f = buildForecast(fixture());
+    expect('snow' in f.current || 'cloud' in f.current || 'isDay' in f.current).toBe(false);
+    expect(f.days[0].snow).toBe(0);
+  });
+
+  it('gives each day its sunrise and sunset when the forecast has them', () => {
+    const r = fixture();
+    r.daily.sunrise = DAYS.map((d) => `${d}T07:42`);
+    r.daily.sunset = DAYS.map((d) => `${d}T14:37`);
+    r.daily.daylight_duration = DAYS.map(() => 24_932);
+    expect(buildForecast(r).days[0].sun).toEqual({ rise: '2026-10-22T07:42', set: '2026-10-22T14:37', daylight: 24_932 });
+    expect(buildForecast(fixture()).days[0].sun).toBeUndefined();
+  });
+
   it('keeps live current conditions when data is fresh', () => {
     expect(buildForecast(fixture(), '2026-10-22T13:40').current.speed).toBe(24);
   });

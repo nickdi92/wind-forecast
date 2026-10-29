@@ -14,6 +14,15 @@ export function dropIcon(size = 12, label?: string): string {
   return `<svg class="drop-icon" width="${size}" height="${size}" viewBox="0 0 12 12" ${a11y}><path d="M6 1C6 1 2.2 5.2 2.2 7.6a3.8 3.8 0 0 0 7.6 0C9.8 5.2 6 1 6 1Z"/></svg>`;
 }
 
+/** Snowflake in place of the drop when what falls is snow. */
+export function snowIcon(size = 12, label?: string): string {
+  const a11y = label ? `role="img" aria-label="${label}"` : 'aria-hidden="true"';
+  return `<svg class="snow-icon" width="${size}" height="${size}" viewBox="0 0 12 12" ${a11y}><path d="M6 1v10M1.7 3.5l8.6 5M1.7 8.5l8.6-5M4.6 1.8 6 3l1.4-1.2M4.6 10.2 6 9l1.4 1.2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+/** Drop for rain and sleet, snowflake for snow. */
+export const precipIcon = (snow: boolean, size = 12, label?: string): string => (snow ? snowIcon(size, label) : dropIcon(size, label));
+
 export const escapeHtml = (s: string): string =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 

@@ -1,7 +1,7 @@
 import { GUST_WARN } from './alerts';
 import type { HourPoint } from './forecast';
 import { hourLabel } from './format';
-import { RAIN_MIN, RAIN_POSSIBLE, rainShort } from './rain';
+import { precipKind, PRECIP_WORD, RAIN_MIN, RAIN_POSSIBLE, rainShort } from './rain';
 import { needleIcon } from './ui';
 import { convertSpeed, UNIT_LABEL, windFrom, type SpeedUnit } from './wind';
 
@@ -18,7 +18,7 @@ function rainBar(h: HourPoint, x: number, w: number): string {
   const wet = h.rain >= RAIN_MIN;
   if (!wet && h.rainChance < RAIN_POSSIBLE) return '';
   const rh = wet ? Math.max(2, RAIN_H * Math.sqrt(Math.min(h.rain, RAIN_FULL) / RAIN_FULL)) : 2;
-  return `<rect class="rain${wet ? '' : ' maybe'}" x="${x.toFixed(1)}" y="${(H - LABELS - rh).toFixed(1)}" width="${w.toFixed(1)}" height="${rh.toFixed(1)}" rx="1"/>`;
+  return `<rect class="rain${precipKind(h) === 'neve' ? ' snow' : ''}${wet ? '' : ' maybe'}" x="${x.toFixed(1)}" y="${(H - LABELS - rh).toFixed(1)}" width="${w.toFixed(1)}" height="${rh.toFixed(1)}" rx="1"/>`;
 }
 
 /**
@@ -76,7 +76,7 @@ export class HourChart {
     const rain = sel && rainShort(sel);
     this.root.setAttribute(
       'aria-valuetext',
-      sel ? `Ore ${hourLabel(sel.time)}, ${convertSpeed(sel.speed, unit)} ${UNIT_LABEL[unit]}${rain ? `, pioggia ${rain}` : ''}` : 'Adesso',
+      sel ? `Ore ${hourLabel(sel.time)}, ${convertSpeed(sel.speed, unit)} ${UNIT_LABEL[unit]}${rain ? `, ${PRECIP_WORD[precipKind(sel)]} ${rain}` : ''}` : 'Adesso',
     );
     this.draw();
   }

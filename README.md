@@ -4,21 +4,22 @@ PWA installabile che mostra il vento dove sei: che vento è (maestrale, scirocco
 
 ## Cosa fa
 
-- **Funziona ovunque, parla come il posto**: nel Mediterraneo i venti hanno i nomi della rosa tradizionale (maestrale, scirocco…); altrove, per esempio in Islanda, l'app dice solo da dove arriva il vento ("Da nord-ovest", verso sud-est), nasconde il pannello del maestrale e i testi sulla Sardegna, e indica le fonti ufficiali del posto.
+- **Funziona ovunque, parla come il posto**: nel Mediterraneo i venti hanno i nomi della rosa tradizionale (maestrale, scirocco…); altrove, per esempio in Islanda, l'app dice solo da dove arriva il vento ("Da nord-ovest", verso sud-est), nasconde il pannello del maestrale e i testi sulla Sardegna, e indica le fonti ufficiali del posto. In Norvegia, Svezia e Finlandia rimanda a meteo e strade di ogni paese (SMHI e Trafikverket, yr.no e vegvesen.no, FMI e Fintraffic) e aggiunge note su fiordi, convogli e chiusure verso Capo Nord.
 - **Rosa dei venti** con gli 8 venti del Mediterraneo (fuori dal Mediterraneo le 8 direzioni). La lancetta punta da dove arriva il vento, il ventaglio mostra quanto girerà nelle prossime 6 ore, le scie animate scorrono nella direzione e alla velocità reali. Se nelle prossime 24 ore piove, un arco azzurro sull'anello mostra da dove arriva la pioggia, con il lato da chiudere.
 - **In breve**: riepilogo scritto dai dati delle previsioni (che vento è, se rinforza o cala e quando, se gira, cosa comportano le raffiche, come cambia domani e nei giorni dopo), più tre righe a colpo d'occhio su mare, coste e giornata.
 - **Prossime 24 ore**: barre con media e raffiche. Trascinando sul grafico la rosa mostra l'ora scelta.
 - **Prossimi giorni**: vento dominante, massimo e raffica massima, con il dettaglio ogni 3 ore.
 - **Temperatura** e temperatura percepita sotto il vento.
-- **Pioggia**: se piove adesso e quanto (mm), o con che probabilità, sotto il vento. Nel grafico delle 24 ore una barretta azzurra per ora, nei giorni la probabilità massima e il totale, nel dettaglio la pioggia di ogni 3 ore.
+- **Pioggia e neve**: se piove o nevica adesso e quanto (mm di pioggia, cm di neve, pioggia mista a neve), o con che probabilità, sotto il vento. Nel grafico delle 24 ore una barretta per ora, azzurra per la pioggia e bianca per la neve; nei giorni la probabilità massima e il totale, nel dettaglio quello che cade ogni 3 ore.
+- **Luce**: quando le giornate sono corte o lunghe (meno di 9 o più di 17 ore di luce), alba, tramonto e ore di luce sotto il vento, con notte polare e sole di mezzanotte.
 - **Avvisi raffiche**: da 40 km/h attenzione, da 60 km/h pericolo, con consigli per il camper.
 - **Approfondimenti** (pannelli espandibili sotto le previsioni):
   - *Coste esposte e ripari*: in Sardegna e in Islanda una mappa schematica con 8 tratti di costa colorati per esposizione (esposta, laterale, più riparata) secondo la direzione del vento, con le note locali (Bocche di Bonifacio; fiordi, raffiche ai piedi delle montagne e tempeste di sabbia in Islanda). Altrove un quadrante delle 8 esposizioni possibili, che non è una mappa. Segue l'ora scelta sul grafico.
   - *Mare e onde*: altezza significativa, direzione, periodo, tendenza a 24 ore e massimi dei prossimi 3 giorni, con la distinzione tra mare vivo (vento locale) e mare residuo (onda lunga). Scala Douglas.
   - *Maestrale*: ore, media e raffiche nelle finestre 0–24, 24–48 e 48–72 ore, tendenza, quando si attenua secondo le previsioni (mai oltre l'orizzonte), onde e coste sarde esposte.
-  - *Camper e attività all'aperto*: guida con raffiche laterali, piazzola, alberi e oggetti, spiaggia, trekking, freddo percepito, foto e drone, proporzionati alle prossime 12 ore. In Islanda anche portiere strappate dal vento, sabbia e ghiaia, onde improvvise sulle spiagge della costa sud e le raffiche misurate su umferdin.is.
+  - *Camper e attività all'aperto*: guida con raffiche laterali, strada con neve, ghiaccio e pioggia che gela, piazzola, alberi e oggetti, spiaggia, trekking, freddo percepito e freddo nel van (butano e acqua che gelano), foto e drone, proporzionati alle prossime 12 ore. In Islanda anche portiere strappate dal vento, sabbia e ghiaia, onde improvvise sulle spiagge della costa sud e le raffiche misurate su umferdin.is. In Norvegia, Svezia e Finlandia anche ponti e traghetti chiusi col vento, convogli sulla E69 per Capo Nord, gomme invernali, ore di luce con renne e alci al buio; lì e in Islanda il cielo della notte per l'aurora boreale.
   - *Scala Beaufort*: forza della media con fascia ufficiale WMO nell'unità scelta, effetti a terra e in mare, raffiche distinte dalla media.
-  - *Rosa dei venti*: provenienza contro direzione di movimento, gli 8 venti con carattere e coste sarde esposte. Toccando un nome sulla rosa si apre qui.
+  - *Rosa dei venti*: provenienza contro direzione di movimento, gli 8 venti con carattere e coste sarde esposte; in Islanda e nei paesi nordici che aria porta ogni direzione. Toccando un nome sulla rosa si apre qui.
 - **Ricerca** di un altro posto, con i posti cercati di recente.
 - **Unità**: km/h, nodi o m/s (tocca l'unità in alto).
 - **Offline**: mostra gli ultimi dati scaricati, riallineati all'ora attuale.
@@ -29,7 +30,7 @@ PWA installabile che mostra il vento dove sei: che vento è (maestrale, scirocco
 ```bash
 npm install
 npm run dev      # server locale
-npm test         # test della logica (venti, Beaufort, avvisi, previsioni, pioggia, riepiloghi, mare, coste, maestrale, camper)
+npm test         # test della logica (venti, Beaufort, avvisi, previsioni, pioggia e neve, luce, riepiloghi, mare, coste, maestrale, camper)
 npm run build    # build di produzione in dist/
 npm run icons    # rigenera le icone PWA da public/favicon.svg
 ```

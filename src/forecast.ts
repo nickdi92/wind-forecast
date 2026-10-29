@@ -23,9 +23,15 @@ export interface OpenMeteoResponse {
     precipitation?: (number | null)[];
     /** % chance of at least 0.1 mm in the hour ending at `time`. */
     precipitation_probability?: (number | null)[];
+    /** cm of fresh snow in the hour ending at `time`, part of `precipitation` (about 0.7 cm per mm of water). */
+    snowfall?: (number | null)[];
     temperature_2m?: (number | null)[];
     /** Felt temperature: wind chill, humidity and sun. */
     apparent_temperature?: (number | null)[];
+    /** % of the sky covered at `time`. Sky fields are missing from forecasts cached before they were added. */
+    cloud_cover?: (number | null)[];
+    /** 1 between sunrise and sunset. */
+    is_day?: (number | null)[];
   };
   daily: {
     time: string[];
@@ -34,6 +40,13 @@ export interface OpenMeteoResponse {
     wind_direction_10m_dominant: number[];
     precipitation_sum?: (number | null)[];
     precipitation_probability_max?: (number | null)[];
+    /** cm. */
+    snowfall_sum?: (number | null)[];
+    /** Local time; both are midnight when the sun neither rises nor sets that day. */
+    sunrise?: (string | null)[];
+    sunset?: (string | null)[];
+    /** Seconds of daylight: 0 in the polar night, 86400 under the midnight sun. */
+    daylight_duration?: (number | null)[];
   };
 }
 
@@ -50,11 +63,22 @@ export interface HourPoint {
   temp?: number;
   /** Felt °C, when the forecast has it. */
   feels?: number;
+  /** cm of snow in the same span as `rain`, which includes it. */
+  snow?: number;
+  /** % of the sky covered. */
+  cloud?: number;
+  /** False between sunset and sunrise. */
+  isDay?: boolean;
 }
 
 /** Temperature fields only when present, so points without them stay as they were. */
 function temps(temp: number | null | undefined, feels: number | null | undefined): Pick<HourPoint, 'temp' | 'feels'> {
   return { ...(temp != null && { temp }), ...(feels != null && { feels }) };
+}
+
+/** Snow and sky fields only when present, like the temperatures. */
+function extras(snow: number | null | undefined, cloud: number | null | undefined, isDay: boolean | null | undefined): Pick<HourPoint, 'snow' | 'cloud' | 'isDay'> {
+  return { ...(snow != null && { snow }), ...(cloud != null && { cloud }), ...(isDay != null && { isDay }) };
 }
 
 export interface DaySummary {
@@ -65,8 +89,19 @@ export interface DaySummary {
   /** mm over the whole day. */
   rain: number;
   rainChance: number;
+  /** cm of snow over the whole day, part of `rain`. */
+  snow: number;
+  /** Sunrise and sunset, local; missing from forecasts cached before they were added. */
+  sun?: Sun;
   /** Every third hour; rain covers the three hours each slot stands for. */
   slots: HourPoint[];
+}
+
+export interface Sun {
+  rise: string;
+  set: string;
+  /** Seconds: 0 in the polar night, 86400 under the midnight sun. */
+  daylight: number;
 }
 
 export interface Forecast {
@@ -95,6 +130,8 @@ export function hourPoints(h: OpenMeteoResponse['hourly']): HourPoint[] {
     rain: h.precipitation?.[i + 1] ?? 0,
     rainChance: h.precipitation_probability?.[i + 1] ?? 0,
     ...temps(h.temperature_2m?.[i], h.apparent_temperature?.[i]),
+    // Snow is part of the rain: shifted the same way. A missing last hour reads as no snow.
+    ...extras(h.snowfall ? (h.snowfall[i + 1] ?? 0) : null, h.cloud_cover?.[i], h.is_day?.[i] == null ? null : h.is_day[i] === 1),
   }));
 }
 
@@ -104,7 +141,15 @@ function threeHourSlot(hours: HourPoint[], i: number): HourPoint {
     ...hours[i],
     rain: span.reduce((sum, p) => sum + p.rain, 0),
     rainChance: Math.max(...span.map((p) => p.rainChance)),
+    ...(hours[i].snow != null && { snow: span.reduce((sum, p) => sum + (p.snow ?? 0), 0) }),
   };
+}
+
+function sunOf(d: OpenMeteoResponse['daily'], i: number): Pick<DaySummary, 'sun'> {
+  const rise = d.sunrise?.[i];
+  const set = d.sunset?.[i];
+  const daylight = d.daylight_duration?.[i];
+  return rise && set && daylight != null ? { sun: { rise, set, daylight } } : {};
 }
 
 /**
@@ -132,6 +177,7 @@ export function buildForecast(r: OpenMeteoResponse, now?: string): Forecast {
     rain: liveRain?.rain ?? 0,
     rainChance: liveRain?.rainChance ?? 0,
     ...temps(r.current.temperature_2m, r.current.apparent_temperature),
+    ...extras(liveRain?.snow, liveRain?.cloud, liveRain?.isDay),
   };
 
   const days: DaySummary[] = r.daily.time.map((date, i) => ({
@@ -141,6 +187,8 @@ export function buildForecast(r: OpenMeteoResponse, now?: string): Forecast {
     dominantDir: r.daily.wind_direction_10m_dominant[i],
     rain: r.daily.precipitation_sum?.[i] ?? 0,
     rainChance: r.daily.precipitation_probability_max?.[i] ?? 0,
+    snow: r.daily.snowfall_sum?.[i] ?? 0,
+    ...sunOf(r.daily, i),
     slots: hours.flatMap((p, j) => (p.time.startsWith(date) && Number(p.time.slice(11, 13)) % 3 === 0 ? [threeHourSlot(hours, j)] : [])),
   })).filter((d) => d.date >= today);
 

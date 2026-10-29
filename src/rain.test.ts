@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { HourPoint } from './forecast';
-import { rainLabel, rainShort, rainSpell, rainSpellCopy, type RainSpell } from './rain';
+import { precipKind, rainLabel, rainShort, rainSpell, rainSpellCopy, type RainSpell } from './rain';
 import { useWindNaming } from './wind';
 
 const DRY: [number, number] = [0, 0];
@@ -114,6 +114,7 @@ describe('rainSpellCopy', () => {
     start: '2026-10-22T15:00',
     end: '2026-10-22T16:00',
     wet: true,
+    kind: 'pioggia',
     ongoing: false,
     spread: { mean: 150, half: 30 },
   };
@@ -153,5 +154,52 @@ describe('rainSpellCopy', () => {
 
   it('leaves out the direction when there is no wind', () => {
     expect(rainSpellCopy({ ...spell, spread: null })).toBe('Pioggia senza vento dalle 15 alle 17');
+  });
+
+  it('says snow when it snows', () => {
+    expect(rainSpellCopy({ ...spell, kind: 'neve' })).toBe('Neve da Scirocco e Ostro dalle 15 alle 17: chiudi gli oblò sul lato sud-est');
+    expect(rainSpellCopy({ ...spell, kind: 'mista', wet: false })).toBe('Possibile pioggia o neve da Scirocco e Ostro dalle 15 alle 17');
+  });
+});
+
+describe('snow', () => {
+  it('reads the snow share of the water when an amount is expected', () => {
+    expect(precipKind({ rain: 1, rainChance: 80, snow: 0.7 })).toBe('neve'); // all of it
+    expect(precipKind({ rain: 0.7, rainChance: 80, snow: 0.35 })).toBe('mista'); // sleet
+    expect(precipKind({ rain: 1, rainChance: 80, snow: 0 })).toBe('pioggia');
+  });
+
+  it('guesses from the temperature when there is only a chance, or no snow figures', () => {
+    expect(precipKind({ rain: 0, rainChance: 40, temp: -3 })).toBe('neve');
+    expect(precipKind({ rain: 0, rainChance: 40, temp: 1.5 })).toBe('mista');
+    expect(precipKind({ rain: 0, rainChance: 40, temp: 6 })).toBe('pioggia');
+    expect(precipKind({ rain: 1, rainChance: 80, temp: -2 })).toBe('neve');
+    expect(precipKind({ rain: 0, rainChance: 40 })).toBe('pioggia');
+  });
+
+  it.each([
+    [{ rain: 1, rainChance: 80, snow: 0.7, temp: -2 }, 'Neve debole, 0,7 cm'],
+    [{ rain: 3, rainChance: 90, snow: 2.1, temp: -1 }, 'Neve moderata, 2,1 cm'],
+    [{ rain: 5, rainChance: 90, snow: 3.5, temp: -1 }, 'Neve forte, 3,5 cm'],
+    [{ rain: 0.7, rainChance: 70, snow: 0.35, temp: 1.2 }, 'Pioggia mista a neve, 0,7 mm'],
+    [{ rain: 0, rainChance: 50, temp: -4 }, 'Neve possibile, 50%'],
+    [{ rain: 0, rainChance: 50, temp: 1 }, 'Pioggia o neve possibile, 50%'],
+    [{ rain: 0, rainChance: 10, temp: -4 }, 'Niente neve né pioggia'],
+    [{ rain: 0, rainChance: 10, temp: 8 }, 'Niente pioggia'],
+  ])('%o → %s', (p, label) => {
+    expect(rainLabel(p)).toBe(label);
+  });
+
+  it('gives snow in cm and sleet in mm', () => {
+    expect(rainShort({ rain: 2, rainChance: 80, snow: 1.4 })).toBe('1,4 cm');
+    expect(rainShort({ rain: 0.7, rainChance: 80, snow: 0.35 })).toBe('0,7 mm');
+  });
+
+  it('calls a spell snow when most of its water falls as snow', () => {
+    const cold = hours([DRY, WET, WET, DRY]).map((h) => ({ ...h, temp: -2, snow: h.rain * 0.7 }));
+    expect(rainSpell(cold)?.kind).toBe('neve');
+    expect(rainSpell(hours([DRY, WET, WET, DRY]))?.kind).toBe('pioggia');
+    const maybe = hours([DRY, MAYBE, MAYBE]).map((h) => ({ ...h, temp: 1 }));
+    expect(rainSpell(maybe)?.kind).toBe('mista');
   });
 });

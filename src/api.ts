@@ -19,8 +19,10 @@ const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const REVERSE_URL = 'https://api.bigdatacloud.net/data/reverse-geocode-client';
 
 const WIND_VARS = 'wind_speed_10m,wind_gusts_10m,wind_direction_10m';
-const RAIN_VARS = 'precipitation,precipitation_probability';
+const RAIN_VARS = 'precipitation,precipitation_probability,snowfall';
 const TEMP_VARS = 'temperature_2m,apparent_temperature';
+/** Clouds at night tell whether the northern lights could be seen. */
+const SKY_VARS = 'cloud_cover,is_day';
 const SEA_VARS =
   'wave_height,wave_direction,wave_period,wind_wave_height,wind_wave_direction,swell_wave_height,swell_wave_direction,swell_wave_period';
 
@@ -35,8 +37,9 @@ export function fetchForecast(lat: number, lon: number): Promise<OpenMeteoRespon
     latitude: lat.toFixed(4),
     longitude: lon.toFixed(4),
     current: `${WIND_VARS},${TEMP_VARS}`,
-    hourly: `${WIND_VARS},${RAIN_VARS},${TEMP_VARS}`,
-    daily: 'wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,precipitation_sum,precipitation_probability_max',
+    hourly: `${WIND_VARS},${RAIN_VARS},${TEMP_VARS},${SKY_VARS}`,
+    daily:
+      'wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,precipitation_sum,precipitation_probability_max,snowfall_sum,sunrise,sunset,daylight_duration',
     timezone: 'auto',
     forecast_days: '5',
     wind_speed_unit: 'kmh',

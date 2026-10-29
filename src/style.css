@@ -14,6 +14,7 @@
   --danger: #ff8f7d;
   --rain: #93bdf5;
   --rain-rgb: 147, 189, 245;
+  --snow: #eef3ff;
   --accent: var(--sea);
   --accent-rgb: var(--sea-rgb);
   /* Beaufort force 0–12, set from JS: the sky glows more as the wind rises. */
@@ -501,6 +502,17 @@ button {
   fill: var(--rain);
 }
 
+.snow-icon {
+  flex: none;
+  color: var(--ink-3);
+}
+
+.rain-line.wet.snow,
+.rain-line.wet .snow-icon,
+.day-rain .snow-icon {
+  color: var(--snow);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -641,6 +653,10 @@ body.loading .wind-name.small {
   fill-opacity: 0.4;
 }
 
+.chart .rain.snow {
+  fill: var(--snow);
+}
+
 .chart .hour {
   fill: var(--ink-3);
   font: 11px var(--sans);
@@ -695,6 +711,11 @@ body.loading .wind-name.small {
 .key.rain {
   background: var(--rain);
   margin-left: 6px;
+}
+
+.key.snow {
+  background: var(--snow);
+  margin: 0 4px 0 6px;
 }
 
 .legend-tip {
@@ -890,6 +911,10 @@ body.loading .wind-name.small {
   font-size: 11px;
   color: var(--rain);
   white-space: nowrap;
+}
+
+.slot-r.snow {
+  color: var(--snow);
 }
 
 .slots b {

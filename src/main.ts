@@ -15,11 +15,12 @@ import { agoLabel, alertCopy, hourLabel, localIso } from './format';
 import { buildSea, type MarineResponse } from './marine';
 import { isNative, syncPayload, vento, type AlertsStatus } from './native';
 import { Panels, type SeaStatus } from './panels';
-import { rainLabel, rainShort, rainSpellCopy } from './rain';
+import { precipKind, PRECIP_WORD, rainLabel, rainShort, rainSpellCopy } from './rain';
 import { Rose } from './rose';
 import { Search } from './search';
 import { load, save } from './storage';
-import { dropIcon } from './ui';
+import { notableDay, sunCopy } from './sun';
+import { precipIcon } from './ui';
 import {
   beaufort,
   CALM_BELOW,
@@ -67,6 +68,7 @@ const els = {
   alertsPanel: $('#alerts-panel'),
   alertsText: $('#alerts-text'),
   alertsBtn: $<HTMLButtonElement>('#alerts-btn'),
+  snowKey: $('#snow-key'),
 };
 
 let shown: Shown | null = null;
@@ -130,6 +132,7 @@ function renderReading(): void {
   const bf = beaufort(p.speed);
   const now = selectedIndex() === null;
   const rain = rainShort(p);
+  const kind = precipKind(p);
   const spell = now ? forecast.rainSpell : null;
 
   document.documentElement.dataset.warm = !calm && w.warm ? '1' : '0';
@@ -146,23 +149,29 @@ function renderReading(): void {
     p.temp == null
       ? ''
       : `<p class="desc soft">${Math.round(p.temp)}°${p.feels != null && Math.abs(p.feels - p.temp) >= 2 ? `, percepiti ${Math.round(p.feels)}°` : ''}</p>`;
+  // Hours of light only where they stand out: short winter days, polar night, midnight sun.
+  const day = now ? forecast.days.find((d) => d.date === p.time.slice(0, 10)) : undefined;
+  const next = day && forecast.days[forecast.days.indexOf(day) + 1];
+  const sun = day?.sun && notableDay(day.sun) ? `<p class="desc soft">${sunCopy(day.sun, p.time, next?.sun)}</p>` : '';
   els.reading.innerHTML = `${when}
     <h1 class="wind-name">${calm ? 'Calma' : med ? w.name : `Da ${w.direction}`}</h1>
     <p class="speed"><span class="num">${convertSpeed(p.speed, unit)}</span><span class="u">${UNIT_LABEL[unit]}</span></p>
     <p class="desc">${calm ? 'Aria ferma' : med ? `Da ${w.direction}` : `Verso ${windTowards(p.dir)}`}, raffiche fino a ${convertSpeed(p.gust, unit)} ${UNIT_LABEL[unit]}</p>
     <p class="desc soft">Forza ${bf.force}, ${bf.label.toLowerCase()}</p>${temp}
-    <p class="desc soft rain-line${rain ? ' wet' : ''}">${dropIcon(13)}${rainLabel(p)}</p>${
+    <p class="desc soft rain-line${rain ? ' wet' : ''}${kind === 'neve' ? ' snow' : ''}">${precipIcon(kind === 'neve', 13)}${rainLabel(p)}</p>${
       spell ? `<p class="desc soft">${rainSpellCopy(spell)}</p>` : ''
     }${
       // The ring reads like a clock face: say what the arc means.
-      spell?.spread ? '<p class="desc hint"><span class="arc-key"></span>L’arco azzurro sulla rosa indica da dove arriva la pioggia, come la lancetta per il vento.</p>' : ''
-    }`;
+      spell?.spread
+        ? `<p class="desc hint"><span class="arc-key"></span>L’arco azzurro sulla rosa indica da dove arriva la ${spell.kind === 'neve' ? 'neve' : 'pioggia'}, come la lancetta per il vento.</p>`
+        : ''
+    }${sun}`;
 
   els.reading.querySelector('#back-now')?.addEventListener('click', () => selectHour(null));
 
   // On phones the chart sits below the rose: repeat the reading right above it.
   const label = now ? 'Adesso' : `Alle ${hourLabel(p.time)}`;
-  els.readout.innerHTML = `${label}: <strong>${calm ? 'calma' : med ? w.name : `da ${w.direction}`}</strong>, ${convertSpeed(p.speed, unit)} ${UNIT_LABEL[unit]}, raffiche ${convertSpeed(p.gust, unit)}${rain ? `, pioggia ${rain}` : ''}${
+  els.readout.innerHTML = `${label}: <strong>${calm ? 'calma' : med ? w.name : `da ${w.direction}`}</strong>, ${convertSpeed(p.speed, unit)} ${UNIT_LABEL[unit]}, raffiche ${convertSpeed(p.gust, unit)}${rain ? `, ${PRECIP_WORD[kind]} ${rain}` : ''}${
     now ? '' : ' <button type="button" class="link" data-now>adesso</button>'
   }`;
   els.readout.querySelector('[data-now]')?.addEventListener('click', () => selectHour(null));
@@ -205,6 +214,7 @@ function renderAll(): void {
   renderReading();
   renderAlert();
   chart.render(forecast.next24, unit, selectedIndex());
+  els.snowKey.hidden = !forecast.next24.some((h) => rainShort(h) && precipKind(h) === 'neve');
   dayList.render(forecast.days, forecast.current.time.slice(0, 10), unit);
   renderPanels(localNow);
   renderAlertsPanel();

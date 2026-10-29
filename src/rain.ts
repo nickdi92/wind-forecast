@@ -8,12 +8,37 @@ export const RAIN_MIN = 0.1; // mm
 /** From this chance on, rain is worth a mention even when the model expects none. */
 export const RAIN_POSSIBLE = 30; // %
 
+/** Open-Meteo counts 0.7 cm of fresh snow for each mm of water. */
+const SNOW_CM_PER_MM = 0.7;
+
 interface Rain {
   rain: number;
   rainChance: number;
+  /** cm, part of `rain`; missing from forecasts cached before snow was added. */
+  snow?: number;
+  /** °C, to guess what falls when only a chance is given. */
+  temp?: number;
 }
 
-/** "0,4", "3", "12": one decimal is enough below 10 mm, none above. */
+export type PrecipKind = 'pioggia' | 'neve' | 'mista';
+
+/**
+ * What falls: the snow share of the water when an amount is expected, the temperature when only a
+ * chance is given or the forecast has no snow figures.
+ */
+export function precipKind(p: Rain): PrecipKind {
+  if (p.rain >= RAIN_MIN && p.snow != null) {
+    const share = p.snow / SNOW_CM_PER_MM / p.rain;
+    return share >= 0.8 ? 'neve' : share >= 0.2 ? 'mista' : 'pioggia';
+  }
+  if (p.temp == null) return 'pioggia';
+  return p.temp <= 0 ? 'neve' : p.temp <= 2 ? 'mista' : 'pioggia';
+}
+
+/** Lower case, for "…, neve 2 cm" after the wind. */
+export const PRECIP_WORD: Record<PrecipKind, string> = { pioggia: 'pioggia', neve: 'neve', mista: 'pioggia e neve' };
+
+/** "0,4", "3", "12": one decimal is enough below 10 mm (or cm), none above. */
 export const mmLabel = (v: number): string => (v >= 10 ? String(Math.round(v)) : String(Math.round(v * 10) / 10).replace('.', ','));
 
 function intensity(mmPerHour: number): string {
@@ -22,16 +47,35 @@ function intensity(mmPerHour: number): string {
   return 'debole';
 }
 
+function snowIntensity(cmPerHour: number): string {
+  if (cmPerHour >= 2.5) return 'forte';
+  if (cmPerHour >= 1) return 'moderata';
+  return 'debole';
+}
+
+/** Snow in cm when the forecast says how much, everything else in mm of water. */
+function amount(p: Rain, kind: PrecipKind): string {
+  return kind === 'neve' && p.snow != null ? `${mmLabel(p.snow)} cm` : `${mmLabel(p.rain)} mm`;
+}
+
 /** For one hour, as the big reading shows it. */
 export function rainLabel(p: Rain): string {
-  if (p.rain >= RAIN_MIN) return `Pioggia ${intensity(p.rain)}, ${mmLabel(p.rain)} mm`;
-  if (p.rainChance >= RAIN_POSSIBLE) return `Pioggia possibile, ${Math.round(p.rainChance)}%`;
-  return 'Niente pioggia';
+  const kind = precipKind(p);
+  if (p.rain >= RAIN_MIN) {
+    if (kind === 'neve') return `Neve ${p.snow != null ? snowIntensity(p.snow) : intensity(p.rain)}, ${amount(p, kind)}`;
+    if (kind === 'mista') return `Pioggia mista a neve, ${amount(p, kind)}`;
+    return `Pioggia ${intensity(p.rain)}, ${amount(p, kind)}`;
+  }
+  if (p.rainChance >= RAIN_POSSIBLE) {
+    const what = kind === 'neve' ? 'Neve possibile' : kind === 'mista' ? 'Pioggia o neve possibile' : 'Pioggia possibile';
+    return `${what}, ${Math.round(p.rainChance)}%`;
+  }
+  return kind === 'pioggia' ? 'Niente pioggia' : 'Niente neve né pioggia';
 }
 
 /** Amount when rain is expected, chance when it is only possible, nothing when dry. */
 export function rainShort(p: Rain): string | null {
-  if (p.rain >= RAIN_MIN) return `${mmLabel(p.rain)} mm`;
+  if (p.rain >= RAIN_MIN) return amount(p, precipKind(p));
   if (p.rainChance >= RAIN_POSSIBLE) return `${Math.round(p.rainChance)}%`;
   return null;
 }
@@ -42,6 +86,8 @@ export interface RainSpell {
   end: string;
   /** Rain is expected, not only possible. */
   wet: boolean;
+  /** Rain, snow or both, over the whole spell. */
+  kind: PrecipKind;
   ongoing: boolean;
   /** Where the wind comes from while it rains, drawn as an arc on the rose; null when it rains without wind. */
   spread: { mean: number; half: number } | null;
@@ -64,7 +110,15 @@ export function rainSpell(hours: HourPoint[]): RainSpell | null {
   for (let i = first + 1; i < hours.length && i - last <= LULL_HOURS + 1; i++) {
     if (rainy(hours[i])) last = i;
   }
-  const windy = hours.slice(first, last + 1).filter((h) => rainy(h) && h.speed >= CALM_BELOW);
+  const spell = hours.slice(first, last + 1).filter(rainy);
+  const temps = spell.flatMap((h) => (h.temp == null ? [] : [h.temp]));
+  const kind = precipKind({
+    rain: spell.reduce((sum, h) => sum + h.rain, 0),
+    rainChance: 100,
+    ...(spell.some((h) => h.snow != null) && { snow: spell.reduce((sum, h) => sum + (h.snow ?? 0), 0) }),
+    ...(temps.length && { temp: temps.reduce((a, b) => a + b, 0) / temps.length }),
+  });
+  const windy = spell.filter((h) => h.speed >= CALM_BELOW);
   // The heaviest hours set the arc, so a drizzle with the wind elsewhere does not swing it round.
   const peak = Math.max(...windy.map((h) => h.rain));
   const main = wet ? windy.filter((h) => h.rain >= peak * MAIN_SHARE) : windy;
@@ -72,6 +126,7 @@ export function rainSpell(hours: HourPoint[]): RainSpell | null {
     start: hours[first].time,
     end: hours[last].time,
     wet,
+    kind,
     ongoing: first === 0,
     spread: main.length ? directionSpread(main.map((h) => h.dir)) : null,
   };
@@ -89,8 +144,14 @@ function arcWinds({ mean, half }: { mean: number; half: number }): string[] {
 
 const joinIt = (items: string[]): string => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`);
 
+const SPELL_WHAT: Record<PrecipKind, [wet: string, maybe: string]> = {
+  pioggia: ['Pioggia', 'Possibile pioggia'],
+  neve: ['Neve', 'Possibile neve'],
+  mista: ['Pioggia mista a neve', 'Possibile pioggia o neve'],
+};
+
 export function rainSpellCopy(s: RainSpell): string {
-  const what = s.wet ? 'Pioggia' : 'Possibile pioggia';
+  const what = SPELL_WHAT[s.kind][s.wet ? 0 : 1];
   const when = s.ongoing ? `fino alle ${nextHourLabel(s.end)}` : `dalle ${hourLabel(s.start)} alle ${nextHourLabel(s.end)}`;
   if (!s.spread) return `${what} senza vento ${when}`;
   const winds = arcWinds(s.spread);

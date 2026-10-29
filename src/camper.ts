@@ -1,14 +1,17 @@
 import { GUST_DANGER, GUST_WARN } from './alerts';
-import type { HourPoint } from './forecast';
+import type { HourPoint, Sun } from './forecast';
+import { hourLabel, nextHourLabel } from './format';
 import { OUTLOOK_HOURS } from './insight';
 import { mLabel, seaState, type SeaPoint } from './marine';
+import { mmLabel, precipKind, RAIN_MIN } from './rain';
+import { durationLabel, polarNight } from './sun';
 import { speedLabel, windFrom, type SpeedUnit } from './wind';
 import type { Zone } from './zone';
 
 export type Level = 'ok' | 'attenzione' | 'pericolo';
 
 export interface Tip {
-  id: 'guida' | 'portiere' | 'sosta' | 'alberi' | 'spiaggia' | 'escursioni' | 'freddo' | 'foto';
+  id: 'guida' | 'strada' | 'portiere' | 'sosta' | 'alberi' | 'spiaggia' | 'escursioni' | 'freddo' | 'luce' | 'aurora' | 'foto';
   title: string;
   level: Level;
   /** A few words for the summary. */
@@ -22,18 +25,151 @@ const GUST_ROLL = 80; // km/h
 const GUST_BRANCHES = 45; // km/h
 /** Wind many light drones are rated for (about 10.7 m/s). */
 const DRONE_MAX = 38; // km/h
+/** Air at 2 m this cold or colder: the road, colder still on clear nights and bridges, can ice up. */
+const ICE_AIR = 2; // °C
+/** Fresh snow in 12 hours that makes roads properly wintry. */
+const SNOW_HEAVY = 5; // cm
+/** Days shorter than this make the hours of light worth planning around. */
+const SHORT_LIGHT = 8 * 3600; // s
+/** Night sky at most this cloudy counts as clear for the northern lights. */
+const CLEAR_SKY = 30; // %
 
 const RANK: Record<Level, number> = { ok: 0, attenzione: 1, pericolo: 2 };
 export const worse = (a: Level, b: Level): Level => (RANK[b] > RANK[a] ? b : a);
+
+/**
+ * Snow, ice and freezing rain on the road in the next hours, from the air temperature and what
+ * falls. Null when it stays clearly above freezing.
+ */
+export function roadTip(span: HourPoint[], nordic = false): Tip | null {
+  const temps = span.flatMap((h) => (h.temp == null ? [] : [h.temp]));
+  if (!temps.length) return null;
+  const low = Math.min(...temps);
+  const snow = span.reduce((sum, h) => sum + (h.snow ?? 0), 0);
+  const wet = (h: HourPoint) => h.rain >= RAIN_MIN && precipKind(h) !== 'neve';
+  // Rain that hits a road at or below freezing turns to ice on contact.
+  const glaze = span.find((h) => wet(h) && h.temp != null && h.temp <= 0);
+  const nearGlaze = span.find((h) => wet(h) && h.temp != null && h.temp <= 1.5);
+  // Roads wet from rain that later drop below freezing.
+  const firstWet = span.findIndex((h) => wet(h) && (h.temp ?? 0) > 0);
+  const refreeze = firstWet >= 0 ? span.slice(firstWet + 1).find((h) => h.temp != null && h.temp <= 0) : undefined;
+  if (low > ICE_AIR && snow < 0.5 && !nearGlaze) return null;
+
+  const parts: string[] = [];
+  let level: Level = 'attenzione';
+  let short: string;
+  if (glaze) {
+    level = 'pericolo';
+    short = 'pioggia che gela';
+    parts.push(`Pioggia con temperature sotto zero dalle ${hourLabel(glaze.time)}: sull’asfalto gela subito e le strade diventano lastre di ghiaccio. Se puoi non metterti in viaggio.`);
+  } else if (snow >= SNOW_HEAVY) {
+    level = 'pericolo';
+    short = `fino a ${mmLabel(snow)} cm di neve`;
+    parts.push(`Fino a ${mmLabel(snow)} cm di neve nelle prossime 12 ore: strade innevate, spazzaneve in ritardo sulle strade secondarie. Gomme invernali o catene, velocità bassa e distanze lunghe.`);
+  } else if (snow >= 0.5) {
+    short = `neve, ${mmLabel(snow)} cm`;
+    parts.push(`Neve in arrivo, circa ${mmLabel(snow)} cm nelle prossime 12 ore: fondo scivoloso, soprattutto all’inizio della nevicata.`);
+  } else if (nearGlaze) {
+    short = 'pioggia vicino a zero';
+    parts.push(`Pioggia con temperature appena sopra lo zero dalle ${hourLabel(nearGlaze.time)}: su ponti e tratti all’ombra può gelare.`);
+  } else if (refreeze) {
+    short = 'strade bagnate che gelano';
+    parts.push(`Dopo la pioggia la temperatura scende sotto zero verso le ${hourLabel(refreeze.time)}: l’asfalto bagnato gela e il ghiaccio non si vede.`);
+  } else {
+    short = 'possibile ghiaccio';
+    parts.push(`Temperatura minima ${Math.round(low)}°: possibile ghiaccio sottile e invisibile su ponti, viadotti, curve all’ombra, di notte e al mattino presto${low > 0 ? ', anche con l’aria sopra lo zero' : ''}.`);
+  }
+  // Snow and near-freezing rain say nothing yet about ice once it gets colder.
+  if (!glaze && (snow >= 0.5 || nearGlaze) && low <= 0) parts.push(`Minima ${Math.round(low)}°: attenzione al ghiaccio su ponti e tratti all’ombra.`);
+  parts.push('Frena e sterza con dolcezza, usa il freno motore e triplica le distanze.');
+  if (nordic) {
+    parts.push('Con fondo invernale le gomme invernali sono obbligatorie in Svezia, Norvegia e Finlandia. Stato delle strade su trafikverket.se, vegvesen.no/trafikk e fintraffic.fi.');
+  }
+  return { id: 'strada', title: 'Strada, neve e ghiaccio', level, short, text: parts.join(' ') };
+}
+
+/**
+ * Whether tonight's sky is clear enough to look for the northern lights: the first stretch of dark
+ * hours in the next 18, by cloud cover. Null without sky data or without a night (midnight sun).
+ */
+export function auroraTip(hours: HourPoint[]): Tip | null {
+  const ahead = hours.slice(0, 18);
+  const start = ahead.findIndex((h) => h.isDay === false && h.cloud != null);
+  if (start < 0) return null;
+  let end = start;
+  while (end + 1 < ahead.length && ahead[end + 1].isDay === false && ahead[end + 1].cloud != null) end++;
+  const night = ahead.slice(start, end + 1);
+  const clear = night.filter((h) => h.cloud! <= CLEAR_SKY);
+  // In the afternoon the dark hours are this evening's as much as tonight's.
+  const hour = Number(night[0].time.slice(11, 13));
+  const when = hour >= 12 && hour < 18 ? 'Da stasera' : 'Stanotte';
+  const check = 'Serve anche attività solare: la previsione dell’aurora è su spaceweather.gov, l’indice Kp dice quanto a sud può arrivare. Allontanati dalle luci; più sei a sud, più va cercata bassa verso nord.';
+  if (clear.length >= Math.max(2, night.length / 2)) {
+    return {
+      id: 'aurora',
+      title: 'Aurora boreale',
+      level: 'ok',
+      short: 'cielo sereno stanotte',
+      text: `${when} cielo in gran parte sereno, tra le ${hourLabel(clear[0].time)} e le ${nextHourLabel(clear.at(-1)!.time)}: buone condizioni per vedere l’aurora, se c’è. ${check}`,
+    };
+  }
+  if (clear.length) {
+    return {
+      id: 'aurora',
+      title: 'Aurora boreale',
+      level: 'ok',
+      short: 'qualche schiarita stanotte',
+      text: `${when} nuvoloso con qualche schiarita, la prima verso le ${hourLabel(clear[0].time)}: cerca il cielo libero, magari spostandoti di qualche km. ${check}`,
+    };
+  }
+  return {
+    id: 'aurora',
+    title: 'Aurora boreale',
+    level: 'ok',
+    short: 'cielo coperto stanotte',
+    text: `${when} cielo coperto: l’aurora sarà difficile da vedere anche se c’è.`,
+  };
+}
+
+/** Hours of light in the far north, where they drive the day more than the wind. */
+function lightTip(sun: Sun): Tip | null {
+  if (polarNight(sun)) {
+    return {
+      id: 'luce',
+      title: 'Luce',
+      level: 'attenzione',
+      short: 'notte polare',
+      text: 'Notte polare: il sole non sorge e resta solo qualche ora di crepuscolo a metà giornata. Sfruttala per i tratti più lunghi; al buio renne e alci sulla strada si vedono all’ultimo.',
+    };
+  }
+  if (sun.daylight >= SHORT_LIGHT) return null;
+  return {
+    id: 'luce',
+    title: 'Luce',
+    level: 'ok',
+    short: `${durationLabel(sun.daylight)} di luce`,
+    text: `Solo ${durationLabel(sun.daylight)} di luce, dalle ${sun.rise.slice(11, 16)} alle ${sun.set.slice(11, 16)}: programma la guida di giorno. All’alba, al tramonto e al buio renne e alci attraversano spesso la strada.`,
+  };
+}
 
 /**
  * Advice for life on the road, scaled to the wind of the next hours: the peak gust and the peak
  * mean wind, where the strongest gust comes from, and the sea when there is data for it.
  * @param hours Hourly forecast starting with the current hour.
  * @param zone Iceland gets its own advice: doors, sand, sneaker waves, road gust measurements.
+ * Norway, Sweden and Finland get convoys and closures, winter tyres, hours of light and the aurora.
+ * @param sun Today's sunrise and sunset, when the forecast has them.
  */
-export function camperTips(now: HourPoint, hours: HourPoint[], unit: SpeedUnit, sea: SeaPoint | null = null, zone: Zone = 'mediterraneo'): Tip[] {
+export function camperTips(
+  now: HourPoint,
+  hours: HourPoint[],
+  unit: SpeedUnit,
+  sea: SeaPoint | null = null,
+  zone: Zone = 'mediterraneo',
+  sun: Sun | null = null,
+): Tip[] {
   const iceland = zone === 'islanda';
+  const nordic = zone === 'nordici';
   const span = [now, ...hours.slice(1, OUTLOOK_HOURS + 1)];
   const top = span.reduce((a, b) => (b.gust > a.gust ? b : a));
   const G = top.gust;
@@ -71,6 +207,17 @@ export function camperTips(now: HourPoint, hours: HourPoint[], unit: SpeedUnit, 
     }
   }
 
+  if (nordic && G >= GUST_WARN) {
+    const guida = tips[0];
+    tips[0] = {
+      ...guida,
+      text: `${guida.text} Con vento forte alcuni ponti alti chiudono a camper e rimorchi e i traghetti possono saltare; sugli altipiani del Finnmark e sulla E69 per Capo Nord, con vento e neve, si viaggia in convoglio (kolonnekjøring) o la strada chiude: controlla vegvesen.no/trafikk prima di partire.`,
+    };
+  }
+
+  const road = roadTip(span, nordic);
+  if (road) tips.push(road);
+
   tips.push(
     G >= GUST_DANGER
       ? { id: 'sosta', title: 'Sosta e piazzola', level: 'pericolo', short: 'al riparo, tendalino chiuso', text: `Tendalino chiuso e bloccato. Niente sosta su promontori, crinali o lungomare aperti: cerca il riparo di un edificio, un muro o un terrapieno sul lato ${from}, lontano dagli alberi, e parcheggia con il muso verso ${from} per ridurre il rollio.` }
@@ -102,6 +249,9 @@ export function camperTips(now: HourPoint, hours: HourPoint[], unit: SpeedUnit, 
     if (s.degree >= 4) beach = { ...beach, level: 'pericolo', short: `mare ${s.label}`, text: `${beach.text} Mare ${s.label}: bagno sconsigliato sulle spiagge esposte, attenzione alle correnti di ritorno.` };
     else if (s.degree === 3) beach = { ...beach, level: worse(beach.level, 'attenzione'), text: `${beach.text} Mare mosso: bagno con prudenza, dove si tocca e meglio con bagnino.` };
   }
+  // Umbrellas make no sense on a cold Nordic beach: say nothing unless it is summer.
+  const warmest = Math.max(...span.map((h) => h.temp ?? -Infinity));
+  const skipBeach = nordic && warmest < 15;
   if (iceland) {
     // No umbrellas up here: the danger at the beach is the sea itself.
     beach = {
@@ -113,7 +263,7 @@ export function camperTips(now: HourPoint, hours: HourPoint[], unit: SpeedUnit, 
       }${sea && seaState(sea.height).degree >= 3 ? ` Mare ${seaState(sea.height).label}, onde di ${mLabel(sea.height)}.` : ''}`,
     };
   } else if (M >= 15) beach = { ...beach, text: `${beach.text} Con vento da terra niente gonfiabili, materassini e SUP: il vento li porta al largo.` };
-  tips.push(beach);
+  if (!skipBeach) tips.push(beach);
 
   tips.push(
     G >= GUST_DANGER
@@ -124,14 +274,32 @@ export function camperTips(now: HourPoint, hours: HourPoint[], unit: SpeedUnit, 
   );
 
   const felt = Math.min(...span.map((h) => h.feels ?? Infinity));
-  if (felt <= 0) {
+  const low = Math.min(...span.map((h) => h.temp ?? Infinity));
+  if (felt <= 0 || low <= 0) {
+    const cold: string[] = [];
+    if (felt <= 0) {
+      cold.push(`Con il vento la temperatura percepita scende fino a ${Math.round(felt)}°: vestiti a strati con uno strato antivento, proteggi mani, orecchie e viso${felt <= -10 ? ' e limita il tempo all’aperto' : ''}.`);
+    }
+    if (low <= 0) {
+      // Butane stops vaporising just below 0 °C; propane works down to about -40 °C.
+      cold.push(`Nel van, con minime di ${Math.round(low)}°: sotto zero il butano non funziona più, per stufa e fornello serve propano. Proteggi dal gelo serbatoi e tubi dell’acqua, o svuotali, e arieggia un po’ per la condensa.`);
+    }
     tips.push({
       id: 'freddo',
       title: 'Freddo',
-      level: felt <= -10 ? 'pericolo' : 'attenzione',
-      short: `percepiti ${Math.round(felt)}°`,
-      text: `Con il vento la temperatura percepita scende fino a ${Math.round(felt)}°: vestiti a strati con uno strato antivento, proteggi mani, orecchie e viso${felt <= -10 ? ' e limita il tempo all’aperto' : ''}.`,
+      level: felt <= -10 || low <= -15 ? 'pericolo' : 'attenzione',
+      short: felt <= 0 ? `percepiti ${Math.round(felt)}°` : `minime ${Math.round(low)}°`,
+      text: cold.join(' '),
     });
+  }
+
+  if ((nordic || iceland) && sun) {
+    const light = lightTip(sun);
+    if (light) tips.push(light);
+  }
+  if (nordic || iceland) {
+    const aurora = auroraTip(hours);
+    if (aurora) tips.push(aurora);
   }
 
   const photo: string[] = [];
